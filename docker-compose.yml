@@ -4,8 +4,11 @@
 services:
   db:
     image: ghcr.io/stac-utils/pgstac:latest
+    # pgstac 镜像默认非 root 用户，空卷 initdb 无权写 PGDATA，需 root（入口内部会降权）
+    user: root
     environment:
-      POSTGRES_USER: geodata
+      # 镜像内置 990_pgstac.sh 以 role "postgres" 连接，用户名必须是 postgres
+      POSTGRES_USER: postgres
       POSTGRES_PASSWORD: geodata
       POSTGRES_DB: geodata
     ports:
@@ -15,7 +18,7 @@ services:
       - ./backend/sql/000_extensions.sql:/docker-entrypoint-initdb.d/000_extensions.sql:ro
       - ./backend/sql/001_core_schema.sql:/docker-entrypoint-initdb.d/001_core_schema.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U geodata -d geodata"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d geodata"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -34,7 +37,7 @@ services:
     build: ./backend
     environment:
       APP_ENV: dev
-      DATABASE_URL: postgresql+psycopg://geodata:geodata@db:5432/geodata
+      DATABASE_URL: postgresql+psycopg://postgres:geodata@db:5432/geodata
       REDIS_URL: redis://redis:6379/0
       STORAGE_ROUTE: object
     ports:

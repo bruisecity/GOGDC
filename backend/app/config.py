@@ -13,7 +13,7 @@ class Settings:
         # 数据层：pgSTAC（业务库与 STAC 目录同库，W1 基座连通性验证目标）
         self.database_url = os.getenv(
             "DATABASE_URL",
-            "postgresql+psycopg://geodata:geodata@localhost:5432/geodata",
+            "postgresql+psycopg://postgres:geodata@localhost:5432/geodata",
         )
         # 消息队列（Celery broker，异步链路：采集→检测→编目→存储）
         self.redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")

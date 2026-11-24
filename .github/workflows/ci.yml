@@ -31,23 +31,24 @@ jobs:
       - uses: actions/checkout@v4
       - name: Run DDL against pgstac image
         run: |
-          # pgstac 镜像较新版本默认以非 root 用户运行，空卷 initdb 会因权限退出，
-          # 显式 --user root 交回标准 postgres 入口（其内部会降权到 postgres 用户）
-          docker run -d --user root --name pg -e POSTGRES_USER=geodata \
+          # 注意两项均为 pgstac 镜像的坑：
+          # 1) 较新镜像默认非 root 用户运行，空卷 initdb 无权写 PGDATA 会秒退，需显式 --user root
+          # 2) 镜像内置 990_pgstac.sh 以 role "postgres" 连接，POSTGRES_USER 必须是 postgres
+          docker run -d --user root --name pg -e POSTGRES_USER=postgres \
             -e POSTGRES_PASSWORD=geodata -e POSTGRES_DB=geodata \
             ghcr.io/stac-utils/pgstac:latest
           for i in $(seq 1 30); do
-            docker exec pg pg_isready -U geodata && break || sleep 2
+            docker exec pg pg_isready -U postgres && break || sleep 2
           done
           # 容器若已退出，转储日志便于定位
           if ! docker ps --filter name=pg --filter status=running --format '{{.Names}}' | grep -q '^pg$'; then
             echo "::error::pg 容器未存活，日志如下"; docker logs pg; exit 1
           fi
-          docker exec -i pg psql -U geodata -d geodata \
+          docker exec -i pg psql -U postgres -d geodata \
             -v ON_ERROR_STOP=1 -f /dev/stdin \
             < backend/sql/000_extensions.sql
-          docker exec -i pg psql -U geodata -d geodata \
+          docker exec -i pg psql -U postgres -d geodata \
             -v ON_ERROR_STOP=1 -f /dev/stdin \
             < backend/sql/001_core_schema.sql
-          docker exec pg psql -U geodata -d geodata -tc \
+          docker exec pg psql -U postgres -d geodata -tc \
             "SELECT extversion FROM pg_extension WHERE extname='pgstac'"
