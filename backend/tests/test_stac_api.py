@@ -32,3 +32,97 @@ def client_get(path):
 
     with TestClient(app) as c:
         return c.get(path)
+
+
+
+# ---- W3：注入 pgSTAC 客户端后的真实查询路径 ----
+
+class FakeExecutor:
+    """回放式假执行器：collections/items 由用例预置。"""
+
+    def __init__(self, collections=None, search_result=None):
+        self.collections = collections or []
+        self.search_result = search_result
+        self.searches: list[dict] = []
+
+    def fetch_all(self, sql, params=()):
+        return [None]
+
+    def fetch_one(self, sql, params=()):
+        import json
+
+        if "all_collections()" in sql:
+            return self.collections
+        if "get_collection(" in sql:
+            for c in self.collections:
+                if c["id"] == params[0]:
+                    return c
+            return None
+        if "search(" in sql:
+            body = json.loads(params[0])
+            self.searches.append(body)
+            return self.search_result or {"type": "FeatureCollection", "features": []}
+        return None
+
+
+def _client_with(**kwargs):
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+    from app.routes.deps import get_catalog_client
+    from app.services.catalog import PgstacCatalogClient
+
+    executor = FakeExecutor(**kwargs)
+    app.dependency_overrides[get_catalog_client] = lambda: PgstacCatalogClient(executor)
+    try:
+        with TestClient(app) as c:
+            yield c, executor
+    finally:
+        app.dependency_overrides.pop(get_catalog_client, None)
+
+
+def test_collections_with_client():
+    gen = _client_with(collections=[{"id": "usgs-ned", "type": "Collection"}])
+    c, _ = next(gen)
+    r = c.get("/stac/v1/collections")
+    assert r.status_code == 200
+    assert [x["id"] for x in r.json()["collections"]] == ["usgs-ned"]
+
+
+def test_collection_detail_and_404():
+    gen = _client_with(collections=[{"id": "usgs-ned", "type": "Collection"}])
+    c, _ = next(gen)
+    assert c.get("/stac/v1/collections/usgs-ned").status_code == 200
+    r = c.get("/stac/v1/collections/nope")
+    assert r.status_code == 404 and r.json()["code"] == "NOT_FOUND"
+
+
+def test_items_passthrough_search():
+    result = {"type": "FeatureCollection", "features": [{"id": "ds-1"}], "numberReturned": 1}
+    gen = _client_with(search_result=result)
+    c, ex = next(gen)
+    r = c.get("/stac/v1/collections/usgs-ned/items?limit=5")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["features"] == [{"id": "ds-1"}]
+    assert ex.searches[-1] == {"collections": ["usgs-ned"], "limit": 5}
+
+
+def test_post_search_forwards_body():
+    result = {"type": "FeatureCollection", "features": [], "numberReturned": 0}
+    gen = _client_with(search_result=result)
+    c, ex = next(gen)
+    r = c.post("/stac/v1/search", json={"collections": ["usgs-ned"], "ids": ["ds-1"], "limit": 3})
+    assert r.status_code == 200
+    assert ex.searches[-1] == {"collections": ["usgs-ned"], "ids": ["ds-1"], "limit": 3}
+
+
+def test_search_invalid_bbox_422():
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    with TestClient(app) as c:
+        r = c.post("/stac/v1/search", json={"bbox": [1.0, 2.0]})
+        assert r.status_code == 422
+        assert r.json()["code"] == "VALIDATION_ERROR"

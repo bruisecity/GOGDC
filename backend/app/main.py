@@ -11,10 +11,12 @@ from .core.errors import install_error_handlers
 from .core.probes import run_all_probes
 from .db import engine
 from .routes import auth as auth_routes
+from .routes import catalog as catalog_routes
+from .routes import datasets as dataset_routes
 from .routes import harvest as harvest_routes
 from .routes import stac as stac_routes
 
-app = FastAPI(title="Geodata Console API", version="0.2.0-w2")
+app = FastAPI(title="Geodata Console API", version="0.3.0-w3")
 
 install_error_handlers(app)
 
@@ -31,6 +33,8 @@ async def trace_id_middleware(request: Request, call_next):
 app.include_router(stac_routes.router)
 app.include_router(auth_routes.router)
 app.include_router(harvest_routes.router)
+app.include_router(catalog_routes.router)
+app.include_router(dataset_routes.router)
 
 
 @app.get("/healthz")
@@ -53,4 +57,4 @@ def readyz():
 
 @app.get("/hello")
 def hello() -> dict:
-    return {"message": "Hello, Geodata (GOGDC)!", "week": "W2-datalayer"}
+    return {"message": "Hello, Geodata (GOGDC)!", "week": "W3-catalog"}

@@ -22,6 +22,11 @@ class HarvestRunResult:
     items: int
     retry_count: int
     failure_class: str | None
+    fetched: list = None   # W3：成功时携带拉到的条目（HarvestItem 列表）
+
+    def __post_init__(self) -> None:
+        if self.fetched is None:
+            self.fetched = []
 
 
 def run_harvest_once(
@@ -70,4 +75,5 @@ def run_harvest_once(
         items=len(items),
         retry_count=0,
         failure_class=None,
+        fetched=list(items),
     )

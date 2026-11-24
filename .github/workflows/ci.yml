@@ -64,3 +64,9 @@ jobs:
             "SELECT extversion FROM pg_extension WHERE extname='postgis'"
           docker exec pg psql -U postgres -d geodata -tAc \
             "SELECT schema_name FROM information_schema.schemata WHERE schema_name='pgstac'"
+
+      - name: pgSTAC integration test（W3：编目客户端 SQL 契约真库裁决）
+        run: |
+          pip install pytest "psycopg[binary]>=3.2" "sqlalchemy>=2.0"
+          cd backend && GEODATA_PGSTAC_DSN=postgresql://postgres:geodata@localhost:5432/geodata \
+            python -m pytest tests_pgstac -q

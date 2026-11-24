@@ -40,8 +40,14 @@ services:
       DATABASE_URL: postgresql+psycopg://postgres:geodata@db:5432/geodata
       REDIS_URL: redis://redis:6379/0
       STORAGE_ROUTE: object
+      # W3：pgSTAC 编目直连 + 本地落盘目录 + 门户下载入口前缀
+      PGSTAC_DSN: postgresql://postgres:geodata@db:5432/geodata
+      STORAGE_DIR: /data/storage
+      PUBLIC_BASE_URL: http://localhost:8000
     ports:
       - "8000:8000"
+    volumes:
+      - storage_data:/data/storage
     depends_on:
       db:
         condition: service_healthy
@@ -56,6 +62,10 @@ services:
       APP_ENV: dev
       DATABASE_URL: postgresql+psycopg://postgres:geodata@db:5432/geodata
       REDIS_URL: redis://redis:6379/0
+      PGSTAC_DSN: postgresql://postgres:geodata@db:5432/geodata
+      STORAGE_DIR: /data/storage
+    volumes:
+      - storage_data:/data/storage
     depends_on:
       db:
         condition: service_healthy
@@ -64,3 +74,4 @@ services:
 
 volumes:
   pgdata:
+  storage_data:

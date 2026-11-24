@@ -6,9 +6,10 @@ Geodata（GOGDC）数据中台
 [交互设计稿](https://xcnhob85kcys.feishu.cn/page/JsNZme8i0dNVD9af3IgcrRbCnCg) ·
 [轻量技术设计框架与垂直切片排期](https://my.feishu.cn/docx/GoIfdo22poAbdKxSxYtchEvJnff)
 
-8 周排期（2026-11-23 ~ 2027-01-15）已启动，当前：**W2 数据层与 USGS 采集切片**。
+8 周排期（2026-11-23 ~ 2027-01-15）已启动，当前：**W3 采集落盘与 pgSTAC 入库**。
 逐周进展见 [docs/W1-KICKOFF.md](docs/W1-KICKOFF.md) ·
-[docs/W2-DATALAYER.md](docs/W2-DATALAYER.md)。
+[docs/W2-DATALAYER.md](docs/W2-DATALAYER.md) ·
+[docs/W3-CATALOG.md](docs/W3-CATALOG.md)。
 
 ## 技术栈（技术方案第四章，待 W1 评审定稿）
 

@@ -96,3 +96,55 @@ class HarvestTaskOut(BaseModel):
 class HarvestTaskListOut(BaseModel):
     items: list[HarvestTaskOut]
     total: int
+
+
+# ---------- STAC 检索（W3） ----------
+
+class StacSearchIn(BaseModel):
+    """item-search 子集：collections / ids / bbox / datetime / limit。"""
+
+    collections: Optional[list[str]] = None
+    ids: Optional[list[str]] = None
+    bbox: Optional[list[float]] = Field(default=None, min_length=4, max_length=6)
+    datetime: Optional[str] = None
+    limit: int = Field(default=10, ge=1, le=100)
+
+    def to_search_body(self) -> dict:
+        body: dict = {"limit": self.limit}
+        if self.collections:
+            body["collections"] = self.collections
+        if self.ids:
+            body["ids"] = self.ids
+        if self.bbox:
+            body["bbox"] = self.bbox
+        if self.datetime:
+            body["datetime"] = self.datetime
+        return body
+
+
+# ---------- 编目批次控制台（W3） ----------
+
+class CatalogBatchCreate(BaseModel):
+    collection_id: str = Field(min_length=1, max_length=64)
+
+
+class CatalogBatchAdvance(BaseModel):
+    target: str = Field(pattern="^(草稿|字段校验|预览|发布|归档)$")
+
+
+class CatalogBatchOut(BaseModel):
+    id: int
+    batch_no: str
+    scope: dict
+    publish_state: str
+    version: int
+    parent_batch_id: Optional[int]
+    item_count: Optional[int]
+
+    class Config:
+        from_attributes = True
+
+
+class CatalogBatchListOut(BaseModel):
+    items: list[CatalogBatchOut]
+    total: int

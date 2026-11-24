@@ -32,6 +32,14 @@ class InvalidTransition(ValueError):
         super().__init__(f"{entity}: {current!r} -> {target!r} 不允许")
 
 
+class BatchValidationError(ValueError):
+    """编目批次字段校验未通过（422 BATCH_VALIDATION_FAILED）。"""
+
+    def __init__(self, message: str):
+        super().__init__(message)
+        self.message = message
+
+
 def harvest_transition(current: str, target: str) -> str:
     """校验采集任务状态流转，返回目标状态。"""
     if current not in HARVEST_TRANSITIONS:

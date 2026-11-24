@@ -28,8 +28,10 @@ def _smallint_as_integer(type_, compiler, **kw):
 
 from app.db import get_db
 from app.main import app
-from app.models import AppUser, Base, DataSource, Node, Role
+from app.models import AppUser, Base, DataSource, DatasetCategory, DetectionRule, Node, Role
 from app.core.auth import generate_api_key, hash_api_key, hash_password
+from app.routes.deps import get_blob_store
+from app.services.storage import LocalBlobStore
 
 engine = create_engine(
     "sqlite://",
@@ -72,7 +74,7 @@ def client(db_session):
     app.dependency_overrides.clear()
 
 
-def make_user(db, email: str, role: str) -> str:
+def make_user(db, email: str, role: str, *, download_quota: int = 0) -> str:
     """直接建用户并返回明文 X-API-Key（不走注册接口，供权限测试用）。"""
     role_row = db.query(Role).filter(Role.code == role).one()
     raw = generate_api_key()
@@ -82,7 +84,43 @@ def make_user(db, email: str, role: str) -> str:
             password_hash=hash_password("secret-pass-123"),
             role_id=role_row.id,
             api_key_hash=hash_api_key(raw),
+            download_quota=download_quota,
         )
     )
     db.commit()
     return raw
+
+
+@pytest.fixture()
+def blob_store(tmp_path):
+    """临时目录的本地存储实现。"""
+    return LocalBlobStore(tmp_path / "blobs")
+
+
+@pytest.fixture()
+def category(db_session):
+    """测试用数据分类字典行。"""
+    row = DatasetCategory(code="elevation", name="高程")
+    db_session.add(row)
+    db_session.commit()
+    return row
+
+
+@pytest.fixture()
+def detection_rules(db_session):
+    """默认两条启用规则：元数据完整性 + 病毒载荷（均「隔离」动作）。"""
+    meta = DetectionRule(
+        rule_type="元数据完整性",
+        params={"require_format": True, "min_size_bytes": 1},
+        severity="high",
+        action="隔离",
+    )
+    virus = DetectionRule(
+        rule_type="病毒载荷",
+        params={"suspicious_extensions": [".exe", ".bat", ".sh"], "max_bytes": 100_000_000},
+        severity="high",
+        action="隔离",
+    )
+    db_session.add_all([meta, virus])
+    db_session.commit()
+    return {"meta": meta, "virus": virus}

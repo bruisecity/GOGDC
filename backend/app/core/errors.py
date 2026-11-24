@@ -11,7 +11,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from ..domain.rbac import PermissionDenied
-from ..domain.states import InvalidTransition
+from ..domain.states import BatchValidationError, InvalidTransition
 from ..schema import ApiError
 from .auth import AuthenticationError
 
@@ -69,6 +69,13 @@ def install_error_handlers(app: FastAPI) -> None:
                 "INVALID_STATE_TRANSITION",
                 f"{exc.entity} 不允许 {exc.current} → {exc.target}",
             ),
+        )
+
+    @app.exception_handler(BatchValidationError)
+    async def _batch_validation(request: Request, exc: BatchValidationError):
+        return JSONResponse(
+            status_code=422,
+            content=_envelope(request, "BATCH_VALIDATION_FAILED", exc.message),
         )
 
     @app.exception_handler(RequestValidationError)
