@@ -25,6 +25,7 @@ PRODUCTS_PAYLOAD = {
             "downloadURL": "https://example.gov/dl/ned_900001.img",
             "sizeInBytes": 2048,
             "format": "IMG",
+            "boundingBox": [-105.0, 39.0, -104.0, 40.0],
         }
     ]
 }

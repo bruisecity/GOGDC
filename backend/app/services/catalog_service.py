@@ -73,6 +73,14 @@ def _validate_fields(datasets: list[Dataset]) -> list[str]:
             problems.append(f"dataset={ds.id} 缺少 storage_key")
         if not (ds.format or "").strip():
             problems.append(f"dataset={ds.id} 缺少 format")
+        bbox_vals = (ds.bbox_west, ds.bbox_south, ds.bbox_east, ds.bbox_north)
+        if any(v is None for v in bbox_vals):
+            problems.append(f"dataset={ds.id} 缺少空间范围（bbox）")
+        elif not (
+            float(ds.bbox_west) <= float(ds.bbox_east)
+            and float(ds.bbox_south) <= float(ds.bbox_north)
+        ):
+            problems.append(f"dataset={ds.id} bbox 非法（west>east 或 south>north）")
     return problems
 
 

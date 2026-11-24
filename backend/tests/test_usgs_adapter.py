@@ -23,6 +23,7 @@ GOOD_PAYLOAD = {
             "downloadURL": "https://example.com/tile.tif",
             "sizeInBytes": 12345,
             "format": "GeoTIFF",
+            "boundingBox": [-105.0, 39.0, -104.0, 40.0],
         }
     ]
 }

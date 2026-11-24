@@ -1,7 +1,9 @@
 # W1 基座依赖（锁定大版本，评审后细化）
-fastapi>=0.115
+# fastapi/pydantic 设上限：0.163+/2.13+ 有未定位行为变化（test_items_passthrough_search
+# 在 CI 上回归，沙箱无法安装该版本复现排查），待可复现环境后放开
+fastapi>=0.115,<0.163
 uvicorn[standard]>=0.32
-pydantic>=2.9
+pydantic>=2.9,<2.13
 sqlalchemy>=2.0
 psycopg[binary]>=3.2
 httpx>=0.27

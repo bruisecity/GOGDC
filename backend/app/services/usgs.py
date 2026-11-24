@@ -38,6 +38,8 @@ class HarvestItem:
     url: str
     size_bytes: Optional[int]
     format: Optional[str]
+    # WGS84 [west, south, east, north]；源站未给则为 None（编目字段校验拦截）
+    bbox: Optional[list] = None
 
 
 class Transport(Protocol):
@@ -114,6 +116,14 @@ class USGSTNMClient:
                     f"products[{i}] 缺少下载地址字段",
                     retryable=False,
                 )
+            bbox_raw = entry.get("boundingBox")
+            bbox = None
+            if (
+                isinstance(bbox_raw, (list, tuple))
+                and len(bbox_raw) == 4
+                and all(isinstance(v, (int, float)) for v in bbox_raw)
+            ):
+                bbox = [float(v) for v in bbox_raw]
             items.append(
                 HarvestItem(
                     id=str(entry.get("id") or entry.get("sourceId") or i),
@@ -121,6 +131,7 @@ class USGSTNMClient:
                     url=str(url_value),
                     size_bytes=entry.get("sizeInBytes"),
                     format=entry.get("format"),
+                    bbox=bbox,
                 )
             )
         return items

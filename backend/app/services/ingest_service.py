@@ -102,6 +102,7 @@ def ingest_harvest_items(
         payload = payload_of(item)
         blob = blob_store.put(key, payload)
 
+        bbox = item.bbox if isinstance(item.bbox, (list, tuple)) and len(item.bbox) == 4 else None
         dataset = Dataset(
             category_id=category_id,
             format=(item.format or "").strip(),
@@ -109,6 +110,10 @@ def ingest_harvest_items(
             license=None,  # 源侧许可口径未确证前不落值（W4 补）
             security_status="待检测",
             storage_key=key,
+            bbox_west=bbox[0] if bbox else None,
+            bbox_south=bbox[1] if bbox else None,
+            bbox_east=bbox[2] if bbox else None,
+            bbox_north=bbox[3] if bbox else None,
         )
         db.add(dataset)
         db.flush()  # 取 dataset.id 供审计

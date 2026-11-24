@@ -42,8 +42,11 @@ def _item(cid: str, item_id: str, dataset_id: int = 1) -> dict:
         "stac_version": "1.1.0",
         "id": item_id,
         "collection": cid,
-        "geometry": None,
-        "bbox": None,
+        "geometry": {
+            "type": "Polygon",
+            "coordinates": [[[-105.0, 39.0], [-104.0, 39.0], [-104.0, 40.0], [-105.0, 40.0], [-105.0, 39.0]]],
+        },
+        "bbox": [-105.0, 39.0, -104.0, 40.0],
         "properties": {
             "datetime": datetime.now(timezone.utc).isoformat(),
             "geodata:dataset_id": dataset_id,

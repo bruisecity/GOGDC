@@ -32,6 +32,7 @@ def _mk_dataset(db, category, *, status="检测通过"):
     ds = Dataset(
         category_id=category.id, format="IMG", size_bytes=10,
         security_status=status, storage_key="usgs/1/a.img",
+        bbox_west=-105.0, bbox_south=39.0, bbox_east=-104.0, bbox_north=40.0,
     )
     db.add(ds)
     db.commit()

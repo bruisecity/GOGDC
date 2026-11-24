@@ -123,7 +123,8 @@ def build_stac_collection(collection_id: str, description: str) -> dict:
 
 
 def build_stac_item(dataset: Dataset, *, collection_id: str, download_url: str) -> dict:
-    """Dataset → STAC Item（bbox/时间范围缺省为 null，pgstac 仅强制 properties.datetime）。"""
+    """Dataset → STAC Item。geometry 由 bbox 生成 Polygon（pgstac items.geometry 非空）；
+    发布路径经字段校验保证 bbox 存在。"""
     bbox = None
     if (
         dataset.bbox_west is not None
@@ -137,6 +138,13 @@ def build_stac_item(dataset: Dataset, *, collection_id: str, download_url: str) 
             float(dataset.bbox_east),
             float(dataset.bbox_north),
         ]
+    geometry = None
+    if bbox is not None:
+        w, s_, e, n = bbox
+        geometry = {
+            "type": "Polygon",
+            "coordinates": [[[w, s_], [e, s_], [e, n], [w, n], [w, s_]]],
+        }
     created = dataset.created_at or datetime.now(timezone.utc)
     if created.tzinfo is None:
         created = created.replace(tzinfo=timezone.utc)
@@ -145,7 +153,7 @@ def build_stac_item(dataset: Dataset, *, collection_id: str, download_url: str) 
         "stac_version": STAC_VERSION,
         "id": f"ds-{dataset.id}",
         "collection": collection_id,
-        "geometry": None,
+        "geometry": geometry,
         "bbox": bbox,
         "properties": {
             "datetime": created.isoformat(),

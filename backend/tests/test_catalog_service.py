@@ -44,6 +44,7 @@ def _mk_dataset(db_session, category, *, status="检测通过", collection=None,
     ds = Dataset(
         category_id=category.id, format=fmt, size_bytes=100,
         security_status=status, storage_key=f"usgs/{ds_id or 1}/a.img", collection_id=collection,
+        bbox_west=-105.0, bbox_south=39.0, bbox_east=-104.0, bbox_north=40.0,
     )
     db_session.add(ds)
     db_session.commit()
