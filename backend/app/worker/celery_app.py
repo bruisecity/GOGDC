@@ -21,6 +21,6 @@ celery_app = Celery(
     "geodata",
     broker=settings.redis_url,
     backend=settings.redis_url,
-    include=[],  # W2: ["app.worker.tasks.harvest"]
+    include=["app.worker.tasks.harvest"],  # W2: USGS 单源采集任务
 )
 celery_app.conf.task_default_queue = "geodata.default"

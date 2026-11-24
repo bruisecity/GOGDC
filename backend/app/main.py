@@ -1,35 +1,56 @@
-"""FastAPI 入口：W1 验收要求的 Hello/健康接口 + 数据层基座连通性探测。"""
+"""FastAPI 入口（W2）：路由挂载 + 统一错误信封 + trace_id 中间件 + 真实 readyz。"""
 from __future__ import annotations
 
-from fastapi import FastAPI
+import uuid
+
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 
 from .config import settings
+from .core.errors import install_error_handlers
+from .core.probes import run_all_probes
+from .db import engine
+from .routes import auth as auth_routes
+from .routes import harvest as harvest_routes
+from .routes import stac as stac_routes
 
-app = FastAPI(title="Geodata Console API", version="0.1.0-w1")
+app = FastAPI(title="Geodata Console API", version="0.2.0-w2")
+
+install_error_handlers(app)
+
+
+@app.middleware("http")
+async def trace_id_middleware(request: Request, call_next):
+    """为每个请求生成 trace_id：写入 state（错误信封取用）并回写响应头。"""
+    request.state.trace_id = uuid.uuid4().hex[:12]
+    response = await call_next(request)
+    response.headers["X-Trace-Id"] = request.state.trace_id
+    return response
+
+
+app.include_router(stac_routes.router)
+app.include_router(auth_routes.router)
+app.include_router(harvest_routes.router)
 
 
 @app.get("/healthz")
 def healthz() -> dict:
-    """存活探测（W1 验收：环境可部署 Hello 接口）。"""
+    """存活探测：进程在线即 ok，不触碰外部依赖。"""
     return {"status": "ok", "app": settings.app_name, "env": settings.env}
 
 
 @app.get("/readyz")
-def readyz() -> dict:
-    """就绪探测：依赖（DB / Redis / 存储）逐项探测，任一失败返回 503。
+def readyz():
+    """就绪探测：DB(SELECT 1 + pgstac)/Redis(PING)/存储(端点可达) 逐项真实探测。
 
-    W1 阶段为探测桩——真实连接检查在 W2 数据层基座收口时补齐
-    （对齐排期：W1 验收要求 pgSTAC 与存储层可连通，探测实现随基座落地）。
+    全部 ok → 200；任一失败 → 503（k8s/网关据此摘流量）。
     """
-    checks = {
-        "database": "pending",   # TODO(W2): SELECT 1 + pgstac 版本查询
-        "redis": "pending",      # TODO(W2): PING
-        "storage": "pending",    # TODO(W2): 路线探测（对象：list bucket / 文件：stat 挂载点）
-    }
-    ok = all(v in ("ok", "pending") for v in checks.values())
-    return {"status": "ok" if ok else "degraded", "checks": checks}
+    body = run_all_probes(engine)
+    if body["status"] != "ok":
+        return JSONResponse(status_code=503, content=body)
+    return body
 
 
 @app.get("/hello")
 def hello() -> dict:
-    return {"message": "Hello, Geodata (GOGDC)!", "week": "W1-kickoff"}
+    return {"message": "Hello, Geodata (GOGDC)!", "week": "W2-datalayer"}

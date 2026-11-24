@@ -6,8 +6,9 @@ Geodata（GOGDC）数据中台
 [交互设计稿](https://xcnhob85kcys.feishu.cn/page/JsNZme8i0dNVD9af3IgcrRbCnCg) ·
 [轻量技术设计框架与垂直切片排期](https://my.feishu.cn/docx/GoIfdo22poAbdKxSxYtchEvJnff)
 
-8 周排期（2026-11-23 ~ 2027-01-15）已启动，当前：**W1 基座搭建**。逐周进展见
-[docs/W1-KICKOFF.md](docs/W1-KICKOFF.md)。
+8 周排期（2026-11-23 ~ 2027-01-15）已启动，当前：**W2 数据层与 USGS 采集切片**。
+逐周进展见 [docs/W1-KICKOFF.md](docs/W1-KICKOFF.md) ·
+[docs/W2-DATALAYER.md](docs/W2-DATALAYER.md)。
 
 ## 技术栈（技术方案第四章，待 W1 评审定稿）
 
@@ -23,7 +24,9 @@ Geodata（GOGDC）数据中台
 
 ```bash
 cp .env.example .env
-docker compose up -d db redis      # pgstac + redis，首次启动自动执行 sql/ 迁移
+docker compose up -d db redis      # pgstac + redis（schema 经 Alembic 落库，见下）
+cd backend && DATABASE_URL=postgresql+psycopg://postgres:geodata@localhost:5432/geodata \
+  alembic upgrade head             # 初始化 schema（开发/CI/生产同一迁移路径）
 docker compose up api              # http://localhost:8000/healthz
 # 本地裸跑（不建镜像）：
 cd backend && pip install -r requirements.txt
@@ -33,7 +36,7 @@ uvicorn app.main:app --reload
 ## 测试与 CI
 
 ```bash
-bash scripts/ci-local.sh          # 本地 CI 等价脚本：装依赖 + 编译检查 + 35 例测试
+bash scripts/ci-local.sh          # 本地 CI 等价脚本：装依赖 + 编译检查 + 66 例测试
 ```
 
 - 远端 CI：GitHub Actions（`.github/workflows/ci.yml`）——单测 job + pgSTAC 镜像迁移冒烟 job，push 即自动执行

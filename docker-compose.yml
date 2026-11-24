@@ -15,8 +15,8 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./backend/sql/000_extensions.sql:/docker-entrypoint-initdb.d/000_extensions.sql:ro
-      - ./backend/sql/001_core_schema.sql:/docker-entrypoint-initdb.d/001_core_schema.sql:ro
+    # W2 起 schema 统一经 Alembic 落库（cd backend && DATABASE_URL=... alembic upgrade head），
+    # 不再用 initdb 挂载直灌 DDL，保证开发/CI/生产同一迁移路径。
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d geodata"]
       interval: 5s
@@ -42,6 +42,20 @@ services:
       STORAGE_ROUTE: object
     ports:
       - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # W2：USGS 采集 worker（celery -A app.worker.celery_app worker）
+  worker:
+    build: ./backend
+    command: celery -A app.worker.celery_app.celery_app worker --loglevel=info
+    environment:
+      APP_ENV: dev
+      DATABASE_URL: postgresql+psycopg://postgres:geodata@db:5432/geodata
+      REDIS_URL: redis://redis:6379/0
     depends_on:
       db:
         condition: service_healthy
