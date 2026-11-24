@@ -1,0 +1,49 @@
+# Geodata 开发环境（W1 基座）
+# 用法：docker compose up -d db redis && docker compose up api
+# 注意：pgstac 镜像 tag 建议评审后锁定具体小版本（2026-11 检索时点最新 v0.10.x）
+services:
+  db:
+    image: ghcr.io/stac-utils/pgstac:latest
+    environment:
+      POSTGRES_USER: geodata
+      POSTGRES_PASSWORD: geodata
+      POSTGRES_DB: geodata
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./backend/sql/000_extensions.sql:/docker-entrypoint-initdb.d/000_extensions.sql:ro
+      - ./backend/sql/001_core_schema.sql:/docker-entrypoint-initdb.d/001_core_schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U geodata -d geodata"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: ./backend
+    environment:
+      APP_ENV: dev
+      DATABASE_URL: postgresql+psycopg://geodata:geodata@db:5432/geodata
+      REDIS_URL: redis://redis:6379/0
+      STORAGE_ROUTE: object
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  pgdata:
