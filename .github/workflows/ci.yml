@@ -31,24 +31,34 @@ jobs:
       - uses: actions/checkout@v4
       - name: Run DDL against pgstac image
         run: |
-          # 注意两项均为 pgstac 镜像的坑：
-          # 1) 较新镜像默认非 root 用户运行，空卷 initdb 无权写 PGDATA 会秒退，需显式 --user root
-          # 2) 镜像内置 990_pgstac.sh 以 role "postgres" 连接，POSTGRES_USER 必须是 postgres
+          # pgstac 镜像三个坑位说明：
+          # 1) 较新镜像默认非 root 用户运行，空卷 initdb 无权写 PGDATA 会秒退 -> --user root
+          # 2) 内置 990_pgstac.sh 以 role "postgres" 连接 -> POSTGRES_USER 必须是 postgres
+          # 3) pgSTAC 由镜像 initdb 脚本以原始 SQL 装载（非 CREATE EXTENSION），等 pgstac schema 出现
+          #    即代表初始化真正完成（也避开 initdb 阶段 pg_isready 误报"可连接"的竞态）
           docker run -d --user root --name pg -e POSTGRES_USER=postgres \
             -e POSTGRES_PASSWORD=geodata -e POSTGRES_DB=geodata \
             ghcr.io/stac-utils/pgstac:latest
-          for i in $(seq 1 30); do
-            docker exec pg pg_isready -U postgres && break || sleep 2
+          for i in $(seq 1 60); do
+            docker exec pg psql -U postgres -d geodata -tAc \
+              "SELECT 1 FROM information_schema.schemata WHERE schema_name='pgstac'" 2>/dev/null \
+              | grep -q 1 && break
+            sleep 2
           done
-          # 容器若已退出，转储日志便于定位
           if ! docker ps --filter name=pg --filter status=running --format '{{.Names}}' | grep -q '^pg$'; then
             echo "::error::pg 容器未存活，日志如下"; docker logs pg; exit 1
           fi
+          docker exec pg psql -U postgres -d geodata -tAc \
+            "SELECT 1 FROM information_schema.schemata WHERE schema_name='pgstac'" | grep -q 1 \
+            || { echo "::error::pgstac schema 未出现（初始化未完成或镜像行为变更）"; docker logs pg | tail -50; exit 1; }
           docker exec -i pg psql -U postgres -d geodata \
             -v ON_ERROR_STOP=1 -f /dev/stdin \
             < backend/sql/000_extensions.sql
           docker exec -i pg psql -U postgres -d geodata \
             -v ON_ERROR_STOP=1 -f /dev/stdin \
             < backend/sql/001_core_schema.sql
-          docker exec pg psql -U postgres -d geodata -tc \
-            "SELECT extversion FROM pg_extension WHERE extname='pgstac'"
+          # 终验：postgis 以扩展安装（打印版本），pgstac 以 schema 存在（打印 schema 名）
+          docker exec pg psql -U postgres -d geodata -tAc \
+            "SELECT extversion FROM pg_extension WHERE extname='postgis'"
+          docker exec pg psql -U postgres -d geodata -tAc \
+            "SELECT schema_name FROM information_schema.schemata WHERE schema_name='pgstac'"

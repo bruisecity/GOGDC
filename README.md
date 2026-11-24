@@ -44,7 +44,7 @@ bash scripts/ci-local.sh          # 本地 CI 等价脚本：装依赖 + 编译�
 ```
 backend/
   app/           # FastAPI 应用（main / config / db / models / domain / worker）
-  sql/           # 迁移脚本：000 扩展（pgstac）、001 核心实体 DDL
+  sql/           # 迁移脚本：000 扩展（postgis）、001 核心实体 DDL（pgstac 由镜像内置装载）
   tests/         # pytest（含 schema 一致性门禁）
   scripts/       # ci-local.sh：本地 CI 等价脚本
 docs/            # W1 启动清单等工程文档

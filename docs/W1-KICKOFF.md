@@ -22,7 +22,7 @@ W1 验收：方案签字；环境可部署 Hello 接口；pgSTAC 与存储层（
 - [ ] 周一：技术方案评审会定稿签字（第四章选型拍板：存储路线 object/file、pgstac 镜像版本锁定）
 - [ ] 仓库落位：推送至 github.com/bruisecity/GOGDC（已配 GitHub Actions），push 后 CI 首跑必须绿
 - [ ] 开发/测试环境部署：`docker compose up -d db redis && docker compose up api`，
-      本机验证 /healthz 200、pg_extension 查到 pgstac
+      本机验证 /healthz 200、pgstac schema 已就绪（镜像 initdb 装载，非 CREATE EXTENSION）
 - [ ] W1 否决项确认（技术方案第九章）：4 个承担单位节点网络环境是否支持出网采集；
       不支持则 W2 起通信方案滑期，需当周决策
 - [ ] 15 类收储分类字典、5 角色命名与权限矩阵种子数据：业务确认后补 INSERT
