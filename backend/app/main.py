@@ -10,13 +10,13 @@ from .config import settings
 from .core.errors import install_error_handlers
 from .core.probes import run_all_probes
 from .db import engine
-from .routes import auth as auth_routes
+from .routes import auth as auth_routes, audit as audit_routes, detection as detection_routes
 from .routes import catalog as catalog_routes
 from .routes import datasets as dataset_routes
 from .routes import harvest as harvest_routes
 from .routes import stac as stac_routes
 
-app = FastAPI(title="Geodata Console API", version="0.3.0-w3")
+app = FastAPI(title="Geodata Console API", version="0.4.0-w4")
 
 install_error_handlers(app)
 
@@ -35,6 +35,8 @@ app.include_router(auth_routes.router)
 app.include_router(harvest_routes.router)
 app.include_router(catalog_routes.router)
 app.include_router(dataset_routes.router)
+app.include_router(audit_routes.router)
+app.include_router(detection_routes.router)
 
 
 @app.get("/healthz")
@@ -57,4 +59,4 @@ def readyz():
 
 @app.get("/hello")
 def hello() -> dict:
-    return {"message": "Hello, Geodata (GOGDC)!", "week": "W3-catalog"}
+    return {"message": "Hello, Geodata (GOGDC)!", "week": "W4-portal-compliance"}

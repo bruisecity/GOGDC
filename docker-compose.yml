@@ -72,6 +72,14 @@ services:
       redis:
         condition: service_healthy
 
+  # W4：门户前端（node 构建 -> nginx 静态托管，/api /stac 反代到 api 服务）
+  portal:
+    build: ./frontend
+    ports:
+      - "4173:80"
+    depends_on:
+      - api
+
 volumes:
   pgdata:
   storage_data:

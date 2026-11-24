@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# 本地 CI 等价脚本 —— 与 .github/workflows/ci.yml 的 backend job 同一套命令。
+# 本地 CI 等价脚本 —— 与 .github/workflows/ci.yml 的 backend + frontend job 同一套命令。
 # 用途：push 前或无 runner 环境，在本地跑通同样的检查门禁。
 # 用法：bash scripts/ci-local.sh   （在仓库根目录执行）
 set -euo pipefail
-cd "$(dirname "$0")/../backend"
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT/backend"
 
 PY=python3
 
@@ -23,13 +24,19 @@ run() {  # 选择可用的解释器入口
   else PYTHONPATH=.ci_deps $PY "$@"; fi
 }
 
-echo "==> [1/3] 安装/校验依赖"
+echo "==> [1/4] 安装/校验依赖"
 run -c "import fastapi, sqlalchemy, pytest; print('deps ok')"
 
-echo "==> [2/3] 编译级检查（compileall）"
+echo "==> [2/4] 编译级检查（compileall）"
 run -m compileall -q app tests
 
-echo "==> [3/3] 单元测试（pytest）"
+echo "==> [3/4] 单元测试（pytest）"
 run -m pytest tests -q
 
-echo "✅ 本地 CI 检查全部通过（等价 GitHub Actions backend job）"
+echo "==> [4/4] 前端（node:test + vite build）"
+cd "$ROOT/frontend"
+if [ ! -d node_modules ]; then npm ci; fi
+npm test
+npm run build
+
+echo "✅ 本地 CI 检查全部通过（等价 GitHub Actions backend + frontend job）"

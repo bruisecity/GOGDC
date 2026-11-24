@@ -148,3 +148,46 @@ class CatalogBatchOut(BaseModel):
 class CatalogBatchListOut(BaseModel):
     items: list[CatalogBatchOut]
     total: int
+
+
+# ---------- 审计与检测规则控制台（W4） ----------
+
+class AuditLogOut(BaseModel):
+    id: int
+    user_id: Optional[int]
+    operation: str
+    resource: Optional[str]
+    result: Optional[str]
+    detail: dict
+    trace_id: Optional[str]
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class AuditLogListOut(BaseModel):
+    items: list[AuditLogOut]
+    total: int
+
+
+class DetectionRuleOut(BaseModel):
+    id: int
+    rule_type: str
+    params: dict
+    severity: str
+    action: str
+    version: int
+    enabled: bool
+
+    class Config:
+        from_attributes = True
+
+
+class DetectionRuleListOut(BaseModel):
+    items: list[DetectionRuleOut]
+    total: int
+
+
+class DetectionRulePatch(BaseModel):
+    enabled: bool
