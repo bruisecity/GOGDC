@@ -15,8 +15,9 @@ from .routes import catalog as catalog_routes
 from .routes import datasets as dataset_routes
 from .routes import harvest as harvest_routes
 from .routes import stac as stac_routes
+from .routes import storage as storage_routes
 
-app = FastAPI(title="Geodata Console API", version="0.4.0-w4")
+app = FastAPI(title="Geodata Console API", version="0.5.0-w5")
 
 install_error_handlers(app)
 
@@ -37,6 +38,7 @@ app.include_router(catalog_routes.router)
 app.include_router(dataset_routes.router)
 app.include_router(audit_routes.router)
 app.include_router(detection_routes.router)
+app.include_router(storage_routes.router)
 
 
 @app.get("/healthz")

@@ -22,13 +22,15 @@ class StoredBlob:
 
 
 class BlobStore(Protocol):
-    """对象存储最小协议。"""
+    """对象存储最小协议（W5 增加 delete：分层迁移需删除源端对象）。"""
 
     def put(self, key: str, payload: bytes) -> StoredBlob: ...
 
     def get(self, key: str) -> bytes: ...
 
     def exists(self, key: str) -> bool: ...
+
+    def delete(self, key: str) -> None: ...
 
 
 class BlobStoreError(Exception):
@@ -72,3 +74,9 @@ class LocalBlobStore:
             return self._resolve(key).is_file()
         except BlobStoreError:
             return False
+
+    def delete(self, key: str) -> None:
+        path = self._resolve(key)
+        if not path.is_file():
+            raise BlobStoreError(f"对象不存在: {key}")
+        path.unlink()

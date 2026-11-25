@@ -1,10 +1,10 @@
 """Celery worker 入口（异步链路：采集 → 检测 → 编目 → 存储）。
 
-W1 仅装配骨架（broker/backend 指向 Redis）；任务函数随切片 0（W2–W3）落地：
-- harvest_task: USGS 单源拉取（W2）
-- detection_task: 四类规则流水线（W3）
-- catalog_task: pgSTAC 入库（W3）
-注意：celery 依赖在 W2 引入 requirements；本文件不参与 W1 测试导入。
+任务模块：
+- harvest（W2–W3）：USGS 单源拉取 + 落盘 + 检测流水线
+- storage（W5）：生命周期迁移（storage.lifecycle_pass）+ 水位巡检（storage.watermark_check）
+
+周期调度：celery -A app.worker.celery_app.celery_app beat
 """
 from __future__ import annotations
 
@@ -21,6 +21,20 @@ celery_app = Celery(
     "geodata",
     broker=settings.redis_url,
     backend=settings.redis_url,
-    include=["app.worker.tasks.harvest"],  # W2: USGS 单源采集任务
+    include=[
+        "app.worker.tasks.harvest",   # W2: USGS 单源采集任务
+        "app.worker.tasks.storage",  # W5: 生命周期迁移 + 水位巡检
+    ],
 )
 celery_app.conf.task_default_queue = "geodata.default"
+# W5：周期调度（celery beat）
+celery_app.conf.beat_schedule = {
+    "storage-watermark-hourly": {
+        "task": "storage.watermark_check",
+        "schedule": 3600.0,  # 每小时巡检容量水位
+    },
+    "storage-lifecycle-daily": {
+        "task": "storage.lifecycle_pass",
+        "schedule": 3600.0 * 24,  # 每日一轮热/温/冷迁移
+    },
+}

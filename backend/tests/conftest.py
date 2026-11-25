@@ -124,3 +124,18 @@ def detection_rules(db_session):
     db_session.add_all([meta, virus])
     db_session.commit()
     return {"meta": meta, "virus": virus}
+
+
+
+@pytest.fixture()
+def tier_stores(tmp_path):
+    """临时目录三档分层存储（热/温/冷 各一目录）。"""
+    from app.services.tiering import TieredBlobStores
+
+    return TieredBlobStores(
+        {
+            "热": LocalBlobStore(tmp_path / "hot"),
+            "温": LocalBlobStore(tmp_path / "warm"),
+            "冷": LocalBlobStore(tmp_path / "cold"),
+        }
+    )

@@ -24,6 +24,15 @@ class Settings:
         self.s3_bucket = os.getenv("S3_BUCKET", "geodata-hot")
         # W3：本地落盘目录（file 路线 / 开发环境）；storage_key 始终存相对键
         self.storage_dir = os.getenv("STORAGE_DIR", "./var/storage")
+        # W5：file 路线三档目录（热档沿用 STORAGE_DIR，向后兼容 W3 落盘路径）
+        self.storage_warm_dir = os.getenv("STORAGE_WARM_DIR", "./var/storage-warm")
+        self.storage_cold_dir = os.getenv("STORAGE_COLD_DIR", "./var/storage-cold")
+        # W5：object 路线三桶 + S3 凭据（Ceph RGW / MinIO，SigV4 签名）
+        self.s3_warm_bucket = os.getenv("S3_WARM_BUCKET", "geodata-warm")
+        self.s3_cold_bucket = os.getenv("S3_COLD_BUCKET", "geodata-cold")
+        self.s3_access_key = os.getenv("S3_ACCESS_KEY", "")
+        self.s3_secret_key = os.getenv("S3_SECRET_KEY", "")
+        self.s3_region = os.getenv("S3_REGION", "us-east-1")
         # W3：pgSTAC 直连 DSN（业务库同库；空 = 未启用编目，STAC 路由回空响应）
         self.pgstac_dsn = os.getenv("PGSTAC_DSN", "")
         # W3：STAC item 资产里的下载入口前缀（门户公网地址）

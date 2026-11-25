@@ -191,3 +191,64 @@ class DetectionRuleListOut(BaseModel):
 
 class DetectionRulePatch(BaseModel):
     enabled: bool
+
+
+
+# ---------- 存储分层与生命周期控制台（W5） ----------
+
+class TransitionIn(BaseModel):
+    target_tier: str = Field(pattern="^(热|温|冷)$")
+    bucket: str = Field(min_length=1, max_length=128)
+    after_days: int = Field(ge=0, le=36500)
+
+
+class LifecyclePolicyIn(BaseModel):
+    transitions: list[TransitionIn] = Field(min_length=1)
+
+
+class StorageBucketOut(BaseModel):
+    id: int
+    name: str
+    tier: str
+    lifecycle_policy: dict
+    quota_bytes: int
+    used_bytes: int
+    versioning_enabled: bool
+    object_lock_days: Optional[int]
+    watermark_ratio: Optional[float]
+    watermark_status: str
+
+    class Config:
+        from_attributes = True
+
+
+class StorageBucketListOut(BaseModel):
+    items: list[StorageBucketOut]
+    total: int
+
+
+class LifecycleRunOut(BaseModel):
+    migrated: int
+    transitions: dict
+    policy_failures: list[str]
+
+
+class WatermarkBucketOut(BaseModel):
+    bucket: str
+    tier: str
+    used_bytes: int
+    quota_bytes: int
+    ratio: Optional[float]
+    status: str
+
+
+class WatermarkStatusOut(BaseModel):
+    alert_ratio: float
+    buckets: list[WatermarkBucketOut]
+
+
+class WatermarkCheckOut(BaseModel):
+    """巡检结果：当前告警中的桶 + 本次是否新落了审计记录。"""
+
+    alerts: list[WatermarkBucketOut]
+    audited: bool

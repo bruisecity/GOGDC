@@ -8,11 +8,17 @@ from ..config import settings
 from ..core.auth import PrincipalDep, SessionDep  # noqa: F401
 from ..services.catalog import PgstacCatalogClient
 from ..services.storage import BlobStore, LocalBlobStore
+from ..services.tiering import TieredBlobStores, default_tier_stores
 
 
 def get_blob_store() -> BlobStore:
     """存储抽象装配：开发/file 路线用本地实现；生产注入 S3 兼容实现。"""
     return LocalBlobStore(settings.storage_dir)
+
+
+def get_tier_stores() -> TieredBlobStores:
+    """分层存储装配：按 STORAGE_ROUTE 建 热/温/冷 三档路由。"""
+    return default_tier_stores()
 
 
 def get_catalog_client() -> Optional[PgstacCatalogClient]:
@@ -25,4 +31,5 @@ def get_catalog_client() -> Optional[PgstacCatalogClient]:
 
 
 BlobStoreDep = Depends(get_blob_store)
+TierStoresDep = Depends(get_tier_stores)
 CatalogClientDep = Depends(get_catalog_client)
