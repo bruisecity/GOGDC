@@ -11,6 +11,7 @@ from __future__ import annotations
 from sqlalchemy.orm import Session
 
 from ..models import AuditLog, StorageBucket
+from .alert_service import WebhookDispatcher
 
 WATERMARK_OPERATION = "容量水位"
 ALERT_RATIO = 0.8
@@ -55,13 +56,28 @@ def _last_state(db: Session, bucket_name: str) -> str | None:
     return None
 
 
-def check_watermarks(db: Session, *, user_id: int | None = None) -> list[dict]:
+def check_watermarks(
+    db: Session,
+    *,
+    user_id: int | None = None,
+    webhook_urls: list[str] | None = None,
+    dispatcher: WebhookDispatcher | None = None,
+) -> list[dict]:
     """巡检全部桶的水位：越线落「告警」审计，回落落「恢复」审计，常态静默。
+
+    状态变化时同步走 webhook 送达（ALERT_WEBHOOK_URLS 多路 + 逐路重试），
+    送达结果回写该条审计的 detail.webhook；webhook 全失败不影响审计落库
+    （审计日志始终是可达兜底通道）。webhook_urls=[] 显式禁用推送。
 
     返回当前仍处告警态的桶列表（水位快照）。巡检幂等：未发生状态变化不落审计。
     """
+    if webhook_urls is None:
+        from ..config import settings
+        webhook_urls = list(settings.alert_webhook_urls)
+
     alerts: list[dict] = []
     changed = False
+    rows: list = []  # (审计行, 状态快照, 事件结果)
     for bucket in db.query(StorageBucket).order_by(StorageBucket.id).all():
         status = bucket_status(bucket)
         if status["ratio"] is None:
@@ -69,18 +85,35 @@ def check_watermarks(db: Session, *, user_id: int | None = None) -> list[dict]:
         if status["status"] == "告警":
             alerts.append(status)
             if _last_state(db, bucket.name) != "告警":
-                db.add(AuditLog(
-                    user_id=user_id, operation=WATERMARK_OPERATION, resource="storage",
-                    result="告警", detail=status,
-                ))
+                row = AuditLog(
+                    user_id=user_id, operation=WATERMARK_OPERATION,
+                    resource="storage", result="告警", detail=dict(status),
+                )
+                db.add(row)
+                rows.append((row, status, "告警"))
                 changed = True
         else:
             if _last_state(db, bucket.name) == "告警":
-                db.add(AuditLog(
-                    user_id=user_id, operation=WATERMARK_OPERATION, resource="storage",
-                    result="恢复", detail=status,
-                ))
+                row = AuditLog(
+                    user_id=user_id, operation=WATERMARK_OPERATION,
+                    resource="storage", result="恢复", detail=dict(status),
+                )
+                db.add(row)
+                rows.append((row, status, "恢复"))
                 changed = True
     if changed:
+        if webhook_urls and rows:
+            disp = dispatcher or WebhookDispatcher(
+                webhook_urls,
+                max_attempts=_alert_retries(),
+            )
+            for row, status, result in rows:
+                event = WebhookDispatcher.build_event(result, status, ALERT_RATIO)
+                row.detail = {**(row.detail or {}), "webhook": disp.dispatch(event)}
         db.commit()
     return alerts
+
+
+def _alert_retries() -> int:
+    from ..config import settings
+    return settings.alert_webhook_retries

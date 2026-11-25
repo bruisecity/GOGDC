@@ -39,6 +39,12 @@ class Settings:
         self.public_base_url = os.getenv("PUBLIC_BASE_URL", "")
         # W3：采集落盘默认分类编码（字典行缺失时 worker 跳过落盘并告警）
         self.default_category_code = os.getenv("DEFAULT_CATEGORY_CODE", "elevation")
+        # W5+：水位告警 webhook 送达（逗号分隔 URL；空=仅审计日志通道）
+        self.alert_webhook_urls = [
+            u.strip() for u in os.getenv("ALERT_WEBHOOK_URLS", "").split(",") if u.strip()
+        ]
+        self.alert_webhook_timeout = float(os.getenv("ALERT_WEBHOOK_TIMEOUT", "10"))
+        self.alert_webhook_retries = max(1, int(os.getenv("ALERT_WEBHOOK_RETRIES", "3")))
 
 
 settings = Settings()

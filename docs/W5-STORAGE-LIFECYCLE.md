@@ -45,6 +45,14 @@ W5 验收任务拆分与逐条落地：
 - `GET /api/console/storage/watermark`：水位只读快照（告警线 0.8）。
 - `POST /api/console/storage/watermark/check`：巡检落告警/恢复审计
   （`storage:写`）；worker `storage.watermark_check` 每小时同口径巡检。
+- **webhook 送达（补齐轮）**：告警/恢复状态变化时同步 POST JSON 到
+  `ALERT_WEBHOOK_URLS`（逗号分隔多路，逐路独立送达）；每路独立重试
+  （`ALERT_WEBHOOK_RETRIES`，默认 3 次，指数退避 0.5s/1s/1.5s，2xx 即成功）；
+  送达结果（url/result/attempts/error）回写该条审计 `detail.webhook`，
+  **webhook 全路失败不影响审计落库**——审计日志始终是可达兜底通道。
+  未配置 URL 时行为与原版一致（仅审计通道）。载荷含
+  `event(告警/恢复) / source / alert_ratio / bucket / tier / used_bytes /
+  quota_bytes / ratio / status / occurred_at`。
 - RBAC：admin 全权；operator 读写；auditor 只读；researcher/guest 403。
 
 ## 压测脚本（切片 D1）
@@ -94,6 +102,11 @@ python3 scripts/loadtest_api.py --base-url http://localhost:8000 \
   演练报告落盘，退出码 0。
 - CI：backend job（159 例）+ frontend job（6 例 + build）+ migrate-smoke
   （pgSTAC 真库契约，本轮无 schema 变更，门禁原样通过）。
+- **告警送达补齐轮**：告警服务单测 7 例（首试成功不退避 / 重试后成功
+  记 attempts / 全失败记 error / 非 2xx 与异常同样重试 / 多路独立 /
+  空路拒绝 / 恢复事件载荷）+ 水位集成 5 例（送达结果回写审计 detail /
+  **webhook 全失败时告警审计照落（兜底）** / 恢复事件同样送达 /
+  未配置默认不推送且幂等 / 无状态变化不推送）；离线全量 172 passed（+6 skipped 真机套件）。
 - **真机联调补充**（部署环境联调轮）：MinIO 单机实例
   （RELEASE.2025-07-23T15-54-02Z）上 `tests/test_s3_integration.py`
   **6/6 通过**（桶管理幂等 / 协议往返 / 键安全 / 中文键 / 三桶迁移 /
@@ -165,6 +178,8 @@ S3_ENDPOINT=http://localhost:9000 S3_ACCESS_KEY=geoadmin \
 - ~~object 路线真机联调待部署环境~~ → 已完成 MinIO 真机联调（见下节
   「部署环境联调」）；Ceph RGW 按 runbook 接入（S3 同协议，先在 RGW
   创建 IAM 用户并注入凭据）。
-- 水位告警当前以审计日志为送达通道（控制台可检索）；IM/webhook 推送
-  为 W6+ 运维告警通道扩展项。
+- ~~水位告警仅审计日志送达~~ → 已补齐 **webhook 送达与重试**
+  （`ALERT_WEBHOOK_URLS` 多路 + 指数退避重试 + 送达结果回写审计
+  `detail.webhook`，失败不影响审计兜底）；接入 IM（飞书/钉钉）只需
+  把对应机器人 webhook 填入 `ALERT_WEBHOOK_URLS`。
 - 冷档对象暂不归档压缩（冷档即低成本存储），归档压缩为后续优化项。

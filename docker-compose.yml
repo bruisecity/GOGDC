@@ -64,6 +64,10 @@ services:
       S3_ACCESS_KEY: geoadmin
       S3_SECRET_KEY: geodata-secret-123
       S3_REGION: us-east-1
+      # W5+：水位告警 webhook 送达（逗号分隔多路；空=仅审计日志通道）
+      ALERT_WEBHOOK_URLS: ""
+      ALERT_WEBHOOK_RETRIES: "3"
+      ALERT_WEBHOOK_TIMEOUT: "10"
       # W3：pgSTAC 编目直连 + 本地落盘目录 + 门户下载入口前缀
       PGSTAC_DSN: postgresql://postgres:geodata@db:5432/geodata
       STORAGE_DIR: /data/storage
@@ -94,6 +98,10 @@ services:
       S3_ACCESS_KEY: geoadmin
       S3_SECRET_KEY: geodata-secret-123
       S3_REGION: us-east-1
+      # W5+：worker 每小时水位巡检同步走 webhook 送达（与 api 同口径）
+      ALERT_WEBHOOK_URLS: ""
+      ALERT_WEBHOOK_RETRIES: "3"
+      ALERT_WEBHOOK_TIMEOUT: "10"
     volumes:
       - storage_data:/data/storage
     depends_on:
