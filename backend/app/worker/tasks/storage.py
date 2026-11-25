@@ -15,10 +15,10 @@ except ImportError as exc:  # pragma: no cover —— 环境缺依赖时的显�
         "测试与 API 层不依赖本模块，可直接运行。"
     ) from exc
 
-from ..db import SessionLocal
-from ..services.lifecycle_service import run_lifecycle_pass
-from ..services.tiering import default_tier_stores
-from ..services.watermark_service import check_watermarks
+from ...db import SessionLocal
+from ...services.lifecycle_service import run_lifecycle_pass
+from ...services.tiering import default_tier_stores
+from ...services.watermark_service import check_watermarks
 
 
 @shared_task(name="storage.lifecycle_pass")

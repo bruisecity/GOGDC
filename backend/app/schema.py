@@ -71,6 +71,8 @@ class HarvestTaskCreate(BaseModel):
     data_source_id: int = Field(gt=0)
     node_id: int = Field(gt=0)
     schedule_cron: str = Field(default="", max_length=64)
+    # W6：限流时段 "HH:MM-HH:MM"，空=不限（与 schedule_cron 共同构成调度策略）
+    time_window: str = Field(default="", max_length=32)
     retry_max: int = Field(default=3, ge=0, le=99)
 
 
@@ -83,10 +85,12 @@ class HarvestTaskOut(BaseModel):
     data_source_id: int
     node_id: int
     schedule_cron: str
+    time_window: str = ""
     retry_max: int
     retry_count: int
     last_failure_class: Optional[str]
     status: str
+    last_run_at: Optional[datetime] = None
     updated_at: Optional[datetime]
 
     class Config:
@@ -96,6 +100,39 @@ class HarvestTaskOut(BaseModel):
 class HarvestTaskListOut(BaseModel):
     items: list[HarvestTaskOut]
     total: int
+
+
+# ---------- 采集调度（W6） ----------
+
+class DispatchTaskOut(BaseModel):
+    """单个任务的调度结果。"""
+
+    task_id: int
+    source: str
+    action: str           # skipped / succeeded / retry_scheduled / failed
+    items: int = 0
+    failure_class: Optional[str] = None
+    reason: str = ""
+
+
+class DispatchOut(BaseModel):
+    """一轮调度的汇总（四类失败分别计数，对齐监控口径）。"""
+
+    considered: int
+    dispatched: int
+    succeeded: int
+    retry_scheduled: int
+    failed: int
+    skipped: int
+    failure_classes: dict[str, int]
+    tasks: list[DispatchTaskOut]
+
+
+class DispatchRunIn(BaseModel):
+    """手动触发一轮调度：不传 task_ids 则按 cron/限流时段挑到期任务。"""
+
+    task_ids: Optional[list[int]] = None
+    max_items: int = Field(default=10, ge=1, le=500)
 
 
 # ---------- STAC 检索（W3） ----------

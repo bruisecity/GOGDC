@@ -40,6 +40,9 @@ class HarvestItem:
     format: Optional[str]
     # WGS84 [west, south, east, north]；源站未给则为 None（编目字段校验拦截）
     bbox: Optional[list] = None
+    # W6：源侧溯源附加字段（如 GBIF 的 scientificName / license、
+    # ESA 的 collection / 校验和），不进入落盘契约，仅随审计留痕
+    extra: Optional[dict] = None
 
 
 class Transport(Protocol):

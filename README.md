@@ -6,7 +6,7 @@ Geodata（GOGDC）数据中台
 [交互设计稿](https://xcnhob85kcys.feishu.cn/page/JsNZme8i0dNVD9af3IgcrRbCnCg) ·
 [轻量技术设计框架与垂直切片排期](https://my.feishu.cn/docx/GoIfdo22poAbdKxSxYtchEvJnff)
 
-8 周排期（2026-11-23 ~ 2027-01-15）已启动，当前：**W5 存储分层与生命周期**。
+8 周排期（2026-11-23 ~ 2027-01-15）已启动，当前：**W6 多源扩展（ESA / GBIF）与调度策略**。
 逐周进展见 [docs/W1-KICKOFF.md](docs/W1-KICKOFF.md) ·
 [docs/W2-DATALAYER.md](docs/W2-DATALAYER.md) ·
 [docs/W3-CATALOG.md](docs/W3-CATALOG.md) ·

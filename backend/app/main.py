@@ -17,7 +17,7 @@ from .routes import harvest as harvest_routes
 from .routes import stac as stac_routes
 from .routes import storage as storage_routes
 
-app = FastAPI(title="Geodata Console API", version="0.5.0-w5")
+app = FastAPI(title="Geodata Console API", version="0.6.0-w6")
 
 install_error_handlers(app)
 

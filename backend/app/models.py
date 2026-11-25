@@ -62,6 +62,8 @@ class HarvestTask(Base):
         BigInteger, ForeignKey("node.id"), nullable=False
     )
     schedule_cron: Mapped[str] = mapped_column(String(64), default="")
+    # W6：限流时段（如 "09:00-18:00"）；空串=不限。与 schedule_cron 共同构成调度策略
+    time_window: Mapped[str] = mapped_column(String(32), default="")
     retry_max: Mapped[int] = mapped_column(SmallInteger, default=3)
     retry_count: Mapped[int] = mapped_column(SmallInteger, default=0)
     last_failure_class: Mapped[str | None] = mapped_column(
@@ -79,6 +81,8 @@ class HarvestTask(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+    # W6：最近一次调度执行时刻（到期判定与运维排障口径，成功/失败都记）
+    last_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Node(Base):

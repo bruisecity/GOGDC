@@ -82,7 +82,7 @@ services:
       redis:
         condition: service_healthy
 
-  # W2：USGS 采集 worker（celery -A app.worker.celery_app worker）
+  # W2 采集 worker → W6 多源（USGS / GBIF / ESA）：按任务所属 data_source.code 选适配器
   worker:
     build: ./backend
     command: celery -A app.worker.celery_app.celery_app worker --loglevel=info
@@ -104,6 +104,21 @@ services:
       ALERT_WEBHOOK_TIMEOUT: "10"
     volumes:
       - storage_data:/data/storage
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # W6：周期调度 beat —— 每 5 分钟一轮 harvest.dispatch_round（cron 到期判定在服务层），
+  # 同时承载 W5 的每日生命周期迁移与每小时水位巡检。必须与 worker 同镜像同一份 celery_app。
+  beat:
+    build: ./backend
+    command: celery -A app.worker.celery_app.celery_app beat --loglevel=info
+    environment:
+      APP_ENV: dev
+      DATABASE_URL: postgresql+psycopg://postgres:geodata@db:5432/geodata
+      REDIS_URL: redis://redis:6379/0
     depends_on:
       db:
         condition: service_healthy

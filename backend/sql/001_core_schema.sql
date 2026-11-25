@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS harvest_task (
     data_source_id     BIGINT      NOT NULL REFERENCES data_source(id),
     node_id            BIGINT      NOT NULL REFERENCES node(id),
     schedule_cron      VARCHAR(64) NOT NULL DEFAULT '',
+    time_window        VARCHAR(32) NOT NULL DEFAULT '',   -- W6 限流时段 "HH:MM-HH:MM"，空=不限
     retry_max          SMALLINT    NOT NULL DEFAULT 3,
     retry_count        SMALLINT    NOT NULL DEFAULT 0,
     last_failure_class VARCHAR(32)
@@ -44,7 +45,8 @@ CREATE TABLE IF NOT EXISTS harvest_task (
                        ('连接超时','源站限流','凭证失效','元数据校验')),
     status             VARCHAR(16) NOT NULL DEFAULT 'idle'
                        CHECK (status IN ('idle','running','failed','paused')),
-    updated_at         TIMESTAMPTZ NOT NULL DEFAULT now()
+    updated_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+    last_run_at        TIMESTAMPTZ                        -- W6 最近一次调度执行时刻
 );
 
 -- ── 收储分类字典（15 类）──────────────────────────────────

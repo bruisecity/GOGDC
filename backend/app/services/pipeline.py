@@ -19,7 +19,6 @@ from .detection_service import DetectionResult, run_detection
 from .harvest_service import HarvestRunResult, run_harvest_once
 from .ingest_service import IngestSummary, ingest_harvest_items
 from .storage import BlobStore
-from .usgs import USGSTNMClient
 
 
 @dataclass
@@ -34,7 +33,7 @@ class PipelineResult:
 def run_collect_pipeline(
     db: Session,
     task_id: int,
-    client: USGSTNMClient,
+    client: object,          # W6：SourceAdapter 或 W2–W5 的 USGSTNMClient
     blob_store: BlobStore,
     payload_of: Callable,
     *,
