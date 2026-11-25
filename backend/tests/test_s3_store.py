@@ -101,6 +101,27 @@ def test_invalid_config_and_keys_rejected():
     assert t.calls == []  # 键非法在签名前拦截
 
 
+def test_bucket_management():
+    t = FakeTransport()
+    store = make_store(t)
+    # 建桶：PUT /geodata-hot/
+    store.create_bucket()
+    assert t.calls[0]["method"] == "PUT"
+    assert t.calls[0]["url"] == "http://rgw.example/geodata-hot/"
+    assert t.calls[0]["headers"]["Authorization"].startswith("AWS4-HMAC-SHA256")
+    # 已存在（409）幂等不报错
+    t2 = FakeTransport(); t2.respond("PUT", "", 409)
+    make_store(t2).create_bucket()
+    # 其他错误仍报错
+    t3 = FakeTransport(); t3.respond("PUT", "", 403)
+    with pytest.raises(BlobStoreError):
+        make_store(t3).create_bucket()
+    # 桶存在性
+    assert store.bucket_exists() is True  # 默认 200
+    t4 = FakeTransport(); t4.respond("HEAD", "", 404)
+    assert make_store(t4).bucket_exists() is False
+
+
 def test_key_segments_url_quoted():
     t = FakeTransport()
     make_store(t).put("空间 名/文件 1.tif", b"x")

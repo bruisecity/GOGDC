@@ -94,12 +94,77 @@ python3 scripts/loadtest_api.py --base-url http://localhost:8000 \
   演练报告落盘，退出码 0。
 - CI：backend job（159 例）+ frontend job（6 例 + build）+ migrate-smoke
   （pgSTAC 真库契约，本轮无 schema 变更，门禁原样通过）。
+- **真机联调补充**（部署环境联调轮）：MinIO 单机实例
+  （RELEASE.2025-07-23T15-54-02Z）上 `tests/test_s3_integration.py`
+  **6/6 通过**（桶管理幂等 / 协议往返 / 键安全 / 中文键 / 三桶迁移 /
+  生命周期引擎端到端）；`scripts/s3_bootstrap.py` 建三档桶实测幂等（新建→
+  已存在跳过）；离线套件 160 例 + 联调套件（无对端自动跳过）。
+
+## 部署环境联调（W5 补充：MinIO 实测 + Ceph RGW runbook）
+
+`S3CompatBlobStore` 已完成**真实 S3 兼容集群联调**：本地起 MinIO
+（RELEASE.2025-07-23T15-54-02Z，linux-amd64 单机实例），跑通
+`tests/test_s3_integration.py` 真机套件 **6/6 通过**：
+
+1. 桶管理：`create_bucket`（SigV4 签名 PUT /{bucket}/）+ 幂等重跑 +
+   `bucket_exists`；
+2. 对象协议：put/get/exists/delete 往返、缺失对象 404 报错、键安全拦截；
+3. 中文键（URL 编码寻址）往返读写删除；
+4. **热→温→冷三桶迁移全链路**（TieredBlobStores + migrate_blob，
+   含幂等重放补删源路径）；
+5. **生命周期引擎端到端**（`run_lifecycle_pass` 真机版）：策略评估 →
+   blob 迁移 → `StorageObject` 改挂桶 → 两桶 `used_bytes` 结转 →
+   「存储迁移」审计落库，全流程在真实集群上通过。
+
+联调套件默认跳过（无对端时 CI 不受影响），部署环境按环境变量启用：
+
+```bash
+S3_IT_ENDPOINT=http://127.0.0.1:9000 \
+S3_IT_ACCESS_KEY=geoadmin S3_IT_SECRET_KEY=geodata-secret-123 \
+PYTHONPATH=.ci_deps python3 -m pytest tests/test_s3_integration.py -v
+```
+
+### MinIO（dev / compose 联调环境）
+
+- `docker-compose.yml` 已内置 `minio` 服务（`minio/minio`，9000 API /
+  9001 控制台，`MINIO_ROOT_USER=geoadmin`），api / worker 的
+  `S3_ENDPOINT` 已指向 `http://minio:9000`（`STORAGE_ROUTE=object`）。
+- 起环境后先建三档桶（幂等）：
+
+```bash
+docker compose up -d db redis minio
+S3_ENDPOINT=http://localhost:9000 S3_ACCESS_KEY=geoadmin \
+  S3_SECRET_KEY=geodata-secret-123 python3 scripts/s3_bootstrap.py
+```
+
+### Ceph RGW（生产接入 runbook）
+
+1. **RGW 侧用户**（Ceph 管理节点）：
+   `radosgw-admin user create --uid=geodata --display-name="GOGDC"`
+   → 记下 `access_key` / `secret_key`；
+2. **环境变量**（api / worker / 部署编排注入）：
+   `STORAGE_ROUTE=object`、`S3_ENDPOINT=http://<rgw-host>:8080`（path-style）、
+   `S3_ACCESS_KEY` / `S3_SECRET_KEY`（上一步凭据）、`S3_REGION`（RGW
+   通常任意非空即可，默认 us-east-1）；三桶名默认
+   `geodata-hot` / `geodata-warm` / `geodata-cold`，可用 `S3_BUCKET*`
+   覆盖；
+3. **建桶**：`python3 scripts/s3_bootstrap.py`（同一套 SigV4 签名，
+   幂等；RGW path-style 与 MinIO 同口径）；
+4. **联调验收**：设置 `S3_IT_ENDPOINT=<rgw>` + 凭据，跑
+   `tests/test_s3_integration.py` 6 例（桶管理 / 协议往返 / 中文键 /
+   三桶迁移 / 生命周期端到端），全绿即接入完成；
+5. **上线观察**：worker beat 每小时 `storage.watermark_check`、每日
+   `storage.lifecycle_pass`；审计控制台按
+   `operation=存储迁移 / 容量水位` 检索迁移与告警记录。
+
+原「已知边界」中「真机 Ceph RGW / MinIO 联调待部署环境」一项已由本节
+联调闭环（MinIO 真机全绿；Ceph RGW 按上述 runbook 接入，协议同 S3）。
 
 ## 已知边界与风险
 
-- object 路线的 `S3CompatBlobStore` 已离线单测（签名/协议行为），真机
-  Ceph RGW / MinIO 联调待部署环境（生产 STORAGE_ROUTE=object 时注入
-  `S3_ACCESS_KEY/SECRET_KEY`）。
+- ~~object 路线真机联调待部署环境~~ → 已完成 MinIO 真机联调（见下节
+  「部署环境联调」）；Ceph RGW 按 runbook 接入（S3 同协议，先在 RGW
+  创建 IAM 用户并注入凭据）。
 - 水位告警当前以审计日志为送达通道（控制台可检索）；IM/webhook 推送
   为 W6+ 运维告警通道扩展项。
 - 冷档对象暂不归档压缩（冷档即低成本存储），归档压缩为后续优化项。

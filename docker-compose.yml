@@ -33,6 +33,25 @@ services:
       timeout: 3s
       retries: 10
 
+  # W5：对象存储三档桶宿主（dev 联调环境；生产换 Ceph RGW）
+  # 起环境后先建桶：S3_ENDPOINT=http://localhost:9000 S3_ACCESS_KEY=geoadmin   #   S3_SECRET_KEY=geodata-secret-123 python3 scripts/s3_bootstrap.py
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: geoadmin
+      MINIO_ROOT_PASSWORD: geodata-secret-123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   api:
     build: ./backend
     environment:
@@ -40,6 +59,11 @@ services:
       DATABASE_URL: postgresql+psycopg://postgres:geodata@db:5432/geodata
       REDIS_URL: redis://redis:6379/0
       STORAGE_ROUTE: object
+      # W5：对象存储三档桶（dev=compose 内 MinIO；生产换 Ceph RGW endpoint 与凭据）
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY: geoadmin
+      S3_SECRET_KEY: geodata-secret-123
+      S3_REGION: us-east-1
       # W3：pgSTAC 编目直连 + 本地落盘目录 + 门户下载入口前缀
       PGSTAC_DSN: postgresql://postgres:geodata@db:5432/geodata
       STORAGE_DIR: /data/storage
@@ -64,6 +88,12 @@ services:
       REDIS_URL: redis://redis:6379/0
       PGSTAC_DSN: postgresql://postgres:geodata@db:5432/geodata
       STORAGE_DIR: /data/storage
+      # W5：生命周期迁移/水位巡检 worker 走 object 路线（dev=compose 内 MinIO）
+      STORAGE_ROUTE: object
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY: geoadmin
+      S3_SECRET_KEY: geodata-secret-123
+      S3_REGION: us-east-1
     volumes:
       - storage_data:/data/storage
     depends_on:
@@ -83,3 +113,4 @@ services:
 volumes:
   pgdata:
   storage_data:
+  minio_data:

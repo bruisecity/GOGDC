@@ -102,6 +102,37 @@ class S3CompatBlobStore:
             f"SignedHeaders={signed_headers}, Signature={signature}"
         )
 
+    def _call_raw(self, method: str, canonical_uri: str, payload: bytes = b"") -> tuple[int, bytes]:
+        """按任意 canonical URI 发起已签名请求（桶管理操作用：/{bucket}/）。"""
+        host = urllib.parse.urlparse(self._endpoint).netloc
+        payload_sha256 = hashlib.sha256(payload).hexdigest()
+        amz_stamp, amz_date = self._amz_date()
+        headers = {
+            "Host": host,
+            "x-amz-content-sha256": payload_sha256,
+            "x-amz-date": amz_stamp,
+            "Authorization": self._authorization(
+                method, canonical_uri, payload_sha256, amz_stamp, amz_date, host
+            ),
+        }
+        status, _resp_headers, body = self._transport.request(
+            method, f"{self._endpoint}{canonical_uri}", headers, payload
+        )
+        return status, body
+
+    def create_bucket(self) -> None:
+        """创建本桶（path-style PUT /{bucket}/）。已存在（409）视为成功（幂等）。"""
+        status, body = self._call_raw("PUT", f"/{self._bucket}/")
+        if status >= 400 and status != 409:
+            raise BlobStoreError(f"建桶失败 status={status} bucket={self._bucket!r} body={body[:200]!r}")
+
+    def bucket_exists(self) -> bool:
+        try:
+            status, _ = self._call_raw("HEAD", f"/{self._bucket}/")
+            return status < 400
+        except BlobStoreError:
+            return False
+
     def _call(self, method: str, key: str, payload: bytes = b"") -> tuple[int, bytes]:
         if not key or key.startswith("/") or ".." in urllib.parse.urlparse(key).path.split("/"):
             raise BlobStoreError(f"存储键必须为相对键: {key!r}")
