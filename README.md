@@ -37,6 +37,9 @@ cd backend && pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
 
+完整部署流程（一键编排 / 生产要点 / 备份演练 / 环境变量清单）见
+[deploy/README.md](deploy/README.md)：`bash deploy/deploy.sh`
+
 ## 测试与 CI
 
 ```bash
@@ -54,6 +57,7 @@ backend/
   sql/           # 迁移脚本：000 扩展（postgis）、001 核心实体 DDL（pgstac 由镜像内置装载）
   tests/         # pytest（含 schema 一致性门禁）
   scripts/       # ci-local.sh：本地 CI 等价脚本
+deploy/          # 部署指南 + 一键编排脚本（deploy.sh）+ 生产环境变量样例
 docs/            # W1 启动清单等工程文档
 .github/         # GitHub Actions CI（单测 + pgSTAC 镜像迁移冒烟）
 ```
