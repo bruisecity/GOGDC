@@ -70,7 +70,45 @@ bash deploy/deploy.sh       # 全流程一键编排
   `api worker beat portal`；worker/beat 停机窗口内采集任务由 Redis 队列与 cron 到期
   判定兜底（错过的周期下一轮补判）。
 
-## 5. 环境变量清单
+## 5. 每日健康巡检与故障告警
+
+`deploy/healthcheck.sh`：部署环境巡检 + 故障告警，可手动运行，也可经 crontab 每日调度。
+
+**巡检项**（默认 12 项，与部署形态一一对应）：
+
+- db：`pg_isready`（经 compose exec）；redis：`ping` 应答 PONG；minio：存活探针
+  （生产栈无 minio 时设 `HEALTHCHECK_SKIP_MINIO=1` 跳过）
+- api：`/healthz` HTTP 探活；portal：门户首页 HTTP 探活
+- 容器运行态：db/redis/minio/api/worker/beat/portal 全部在运行。
+  运行≠健康：应用层水位巡检由 beat 内置的每小时任务覆盖（W5），本脚本补的是基础设施层。
+
+**告警口径**（与 W5 存储水位告警同一套环境变量与语义）：
+
+- `ALERT_WEBHOOK_URLS` 逗号分隔多路，逐路独立送达；每路最多 `ALERT_WEBHOOK_RETRIES`
+  （默认 3）次，指数退避 0.5s/1s/1.5s…，HTTP 2xx 视为送达成功；
+- 未配置 webhook 时仅落巡检日志（同 W5「审计日志兜底」口径，巡检不因告警通道不可用而失败）；
+- 载荷 `event`（deploy-healthcheck-fail / -pass）、`source`（gogdc-deploy-healthcheck）、
+  `occurred_at`、`checked`、`failed` 字段与 W5 webhook 消费方对齐。
+
+**使用**：
+
+```bash
+bash deploy/healthcheck.sh                          # 手动巡检：exit 0=全通过 / 1=有故障
+HEALTHCHECK_SKIP_MINIO=1 bash deploy/healthcheck.sh # 生产（无 minio）口径
+HEALTHCHECK_NOTIFY_OK=1 bash deploy/healthcheck.sh   # 可选：全通过时也发 pass 事件
+```
+
+**每日调度**（完整示例见 `deploy/healthcheck.crontab`）：
+
+```cron
+30 8 * * * cd /opt/GOGDC && ALERT_WEBHOOK_URLS=<待填告警 webhook> bash deploy/healthcheck.sh >> var/healthcheck.log 2>&1
+```
+
+**告警后的处置建议**：容器态故障先 `docker compose ps` 看哪个服务退出，再
+`docker compose logs <svc>` 定位；db/redis 连通性故障查基础设施宿主与容器重启记录；
+api 探活失败看 uvicorn 日志；portal 失败先确认 nginx 容器与反代目标。
+
+## 6. 环境变量清单
 
 与 `backend/app/config.py` 读取项一一对应：
 
@@ -86,8 +124,9 @@ bash deploy/deploy.sh       # 全流程一键编排
 | `PUBLIC_BASE_URL` | 空 | 门户下载入口前缀 |
 | `ALERT_WEBHOOK_URLS` / `ALERT_WEBHOOK_TIMEOUT` / `ALERT_WEBHOOK_RETRIES` | 空 / 10 / 3 | 水位告警 webhook 多路送达与重试 |
 | `DEFAULT_CATEGORY_CODE` | elevation | 入库未指定分类时的兜底分类 |
+| `ALERT_WEBHOOK_URLS` / `ALERT_WEBHOOK_TIMEOUT` / `ALERT_WEBHOOK_RETRIES` | 空 / 10 / 3 | 告警 webhook 多路送达与重试（应用内水位告警与部署巡检共用） |
 
-## 6. 常见问题
+## 7. 常见问题
 
 - **迁移报 schema 异常 / 表建错 schema**：确认使用本仓库 `alembic upgrade head`
   而非手工 DDL；`migrations/env.py` 与 0001/0002 迁移已内置 `SET search_path TO public`。
