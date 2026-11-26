@@ -30,11 +30,20 @@ def run_migrations_offline() -> None:
 
 
 def run_migrations_online() -> None:
-    """在线模式：直连数据库执行迁移。"""
-    connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
-        poolclass=pool.NullPool,
+    """在线模式：直连数据库执行迁移。
+
+    Postgres 连接经 connect_args 显式锁 search_path=public：pgstac 镜像会把
+    数据库级 search_path 设为 "pgstac, public"，不锁定时无限定 DDL 与
+    alembic_version 都会静默落进 pgstac schema（W7 备份演练实测暴露）。
+    不把 options 塞进 URL——% 编码会触发 psycopg conninfo 的百分号插值错误。
+    """
+    from sqlalchemy import create_engine
+
+    connect_args: dict = {}
+    if settings.database_url.startswith("postgresql"):
+        connect_args["options"] = "-csearch_path=public"
+    connectable = create_engine(
+        settings.database_url, poolclass=pool.NullPool, connect_args=connect_args
     )
     with connectable.connect() as connection:
         context.configure(connection=connection, target_metadata=target_metadata)

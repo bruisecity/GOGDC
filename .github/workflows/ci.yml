@@ -71,10 +71,10 @@ jobs:
             "SELECT 1 FROM information_schema.schemata WHERE schema_name='pgstac'" | grep -q 1 \
             || { echo "::error::pgstac schema 未出现（初始化未完成或镜像行为变更）"; docker logs pg | tail -50; exit 1; }
           # W2 起 schema 经 Alembic 落库（baseline 执行 sql/000+001，与 ORM 门禁对齐）；
-          # options 锁 search_path=public：pgstac 镜像把数据库级 search_path 设为
-          # "pgstac, public"，不锁定时 alembic_version 与无限定 DDL 会静默落进 pgstac schema
+          # search_path 由 migrations/env.py 的 connect_args 锁定为 public
+          # （pgstac 镜像的数据库级 search_path 为 "pgstac, public"，不锁定会被劫持）
           pip install "sqlalchemy>=2.0" "psycopg[binary]>=3.2" "alembic>=1.13"
-          cd backend && DATABASE_URL='postgresql+psycopg://postgres:geodata@localhost:5432/geodata?options=-csearch_path%3Dpublic' \
+          cd backend && DATABASE_URL=postgresql+psycopg://postgres:geodata@localhost:5432/geodata \
             alembic upgrade head
           cd .. && docker exec pg psql -U postgres -d geodata -tAc \
             "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'" | grep -vq '^0$' \

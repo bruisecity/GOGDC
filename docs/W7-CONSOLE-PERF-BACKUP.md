@@ -72,7 +72,8 @@ python3 scripts/loadtest.py --base-url http://127.0.0.1:8000 \
 - **修复（三层）**：
   1. 迁移自身根治：`0001`/`0002` upgrade/downgrade 首句 `SET search_path TO public`
      ——任何环境（含 W8 部署）都不再依赖数据库级 search_path 默认值；
-  2. CI Alembic 连接加 `?options=-csearch_path%3Dpublic`（alembic_version 也落 public）；
+  2. `migrations/env.py` 对 Postgres 连接加 `connect_args={options: -csearch_path=public}`
+     （alembic_version 也落 public；不放 URL 里——`%` 编码会触发 psycopg conninfo 插值错误）；
   3. CI 新增门禁：迁移后断言 `public.role` 存在，search_path 劫持一旦回归立即红。
 - **教训**：凡在带平台 schema 的库上跑迁移，DDL 必须显式限定 schema 或锁定
   search_path；「有表」类弱检查会被平台托管表掩护，要断言具体业务表。
