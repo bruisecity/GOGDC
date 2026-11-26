@@ -1,7 +1,7 @@
 {
   "name": "gogdc-portal",
   "private": true,
-  "version": "0.6.0-w6",
+  "version": "0.7.0-w7",
   "type": "module",
   "scripts": {
     "dev": "vite",

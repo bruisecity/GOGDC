@@ -6,11 +6,13 @@ Geodata（GOGDC）数据中台
 [交互设计稿](https://xcnhob85kcys.feishu.cn/page/JsNZme8i0dNVD9af3IgcrRbCnCg) ·
 [轻量技术设计框架与垂直切片排期](https://my.feishu.cn/docx/GoIfdo22poAbdKxSxYtchEvJnff)
 
-8 周排期（2026-11-23 ~ 2027-01-15）已启动，当前：**W6 多源扩展（ESA / GBIF）与调度策略**。
+8 周排期（2026-11-23 ~ 2027-01-15）已启动，当前：**W7 数据中台四面板接真实 API + 压测与备份演练**。
 逐周进展见 [docs/W1-KICKOFF.md](docs/W1-KICKOFF.md) ·
 [docs/W2-DATALAYER.md](docs/W2-DATALAYER.md) ·
 [docs/W3-CATALOG.md](docs/W3-CATALOG.md) ·
-[docs/W4-PORTAL-COMPLIANCE.md](docs/W4-PORTAL-COMPLIANCE.md) / W5：[docs/W5-STORAGE-LIFECYCLE.md](docs/W5-STORAGE-LIFECYCLE.md)。
+[docs/W4-PORTAL-COMPLIANCE.md](docs/W4-PORTAL-COMPLIANCE.md) ·
+[docs/W5-STORAGE-LIFECYCLE.md](docs/W5-STORAGE-LIFECYCLE.md) ·
+[docs/W6-MULTISOURCE.md](docs/W6-MULTISOURCE.md) / W7：[docs/W7-CONSOLE-PERF-BACKUP.md](docs/W7-CONSOLE-PERF-BACKUP.md)。
 
 ## 技术栈（技术方案第四章，待 W1 评审定稿）
 

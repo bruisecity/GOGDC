@@ -88,3 +88,12 @@ jobs:
           pip install pytest "psycopg[binary]>=3.2" "sqlalchemy>=2.0"
           cd backend && GEODATA_PGSTAC_DSN=postgresql://postgres:geodata@localhost:5432/geodata \
             python -m pytest tests_pgstac -q
+
+      - name: Backup/restore drill（W7：备份与恢复演练）
+        run: |
+          # 造业务数据，保证备份非空（幂等：role.code 唯一）
+          docker exec pg psql -U postgres -d geodata -c \
+            "INSERT INTO role (code, name) VALUES ('admin','管理员') ON CONFLICT (code) DO NOTHING"
+          chmod +x backend/scripts/backup/backup_restore_drill.sh
+          backend/scripts/backup/backup_restore_drill.sh \
+            postgresql://postgres:geodata@localhost:5432/geodata

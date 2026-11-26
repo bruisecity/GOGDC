@@ -289,3 +289,102 @@ class WatermarkCheckOut(BaseModel):
 
     alerts: list[WatermarkBucketOut]
     audited: bool
+
+
+# ---------- 汇聚节点控制台（W7） ----------
+
+class NodeHeartbeatIn(BaseModel):
+    """节点心跳上报：磁盘两值与累计下载字节均为全量快照（非增量）。"""
+
+    disk_total: int = 0
+    disk_used: int = 0
+    download_bytes_total: int = 0
+
+
+class NodeOut(BaseModel):
+    id: int
+    code: str
+    org_name: str
+    public_egress: bool
+    heartbeat_at: Optional[datetime]
+    disk_total: int
+    disk_used: int
+    download_bytes_total: int
+    task_count: int
+    online: bool
+
+    class Config:
+        from_attributes = True
+
+
+class NodeListOut(BaseModel):
+    items: list[NodeOut]
+    total: int
+    online: int
+
+
+class NodeHeartbeatOut(BaseModel):
+    id: int
+    heartbeat_at: datetime
+    online: bool
+
+
+# ---------- 数据总览面板（W7） ----------
+
+class OverviewDatasetsOut(BaseModel):
+    total: int
+    total_bytes: int
+    by_security_status: dict[str, int]
+
+
+class OverviewNodesOut(BaseModel):
+    total: int
+    online: int
+    online_rate: float
+
+
+class OverviewSourceItemOut(BaseModel):
+    code: str
+    health_status: str
+    quota_limit: int
+    quota_used: int
+    last_success_at: Optional[datetime]
+
+
+class OverviewSourcesOut(BaseModel):
+    by_health: dict[str, int]
+    items: list[OverviewSourceItemOut]
+
+
+class OverviewTasksOut(BaseModel):
+    total: int
+    by_status: dict[str, int]
+
+
+class OverviewStorageBucketOut(BaseModel):
+    name: str
+    tier: str
+    used_bytes: int
+    quota_bytes: int
+    ratio: Optional[float]
+    status: str
+
+
+class OverviewStorageOut(BaseModel):
+    alert_ratio: float
+    total_used_bytes: int
+    total_quota_bytes: int
+    buckets: list[OverviewStorageBucketOut]
+
+
+class OverviewOut(BaseModel):
+    """数据总览：一次拉齐四面板 + 监控三口径（在线率 / 水位 / 四类失败）。"""
+
+    datasets: OverviewDatasetsOut
+    dataset_categories: int
+    nodes: OverviewNodesOut
+    data_sources: OverviewSourcesOut
+    harvest_tasks: OverviewTasksOut
+    harvest_failures: dict[str, int]
+    storage: OverviewStorageOut
+    generated_at: datetime

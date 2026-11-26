@@ -87,6 +87,35 @@ export async function searchItems(search) {
   return body.features || [];
 }
 
+// ---- 数据中台（W7）：/api/console/* 面板接口 ----
+
+export function buildTasksQuery({ limit, offset }) {
+  const lim = Number(limit);
+  const l = Math.min(Math.max(Number.isFinite(lim) ? lim : 20, 1), 100);
+  const off = Math.max(Number(offset) || 0, 0);
+  return `?limit=${l}&offset=${off}`;
+}
+
+function consoleHeaders(apiKey) {
+  return apiKey ? { "X-API-Key": apiKey } : {};
+}
+
+export async function fetchOverview(apiKey) {
+  return json(await fetch("/api/console/overview", { headers: consoleHeaders(apiKey) }));
+}
+
+export async function fetchHarvestTasks(apiKey, page = {}) {
+  return json(
+    await fetch(`/api/console/harvest-tasks${buildTasksQuery(page)}`, {
+      headers: consoleHeaders(apiKey),
+    })
+  );
+}
+
+export async function fetchNodes(apiKey) {
+  return json(await fetch("/api/console/nodes", { headers: consoleHeaders(apiKey) }));
+}
+
 export async function fetchAuditLogs(apiKey, filters) {
   return json(
     await fetch(`/api/console/audit-logs${buildAuditQuery(filters)}`, {

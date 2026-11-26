@@ -3,6 +3,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   normalizeBbox, formatBytes, buildItemsQuery, buildSearchBody, buildAuditQuery,
+  buildTasksQuery,
 } from "../src/api.js";
 
 test("normalizeBbox 四项齐全且方向合法", () => {
@@ -40,4 +41,11 @@ test("buildAuditQuery 过滤项与分页", () => {
     "?operation=" + encodeURIComponent("数据下载") + "&trace_id=t-1&limit=50&offset=10"
   );
   assert.equal(buildAuditQuery({}), "?limit=20&offset=0");
+});
+
+test("buildTasksQuery 分页参数夹取（W7 采集任务面板）", () => {
+  assert.equal(buildTasksQuery({ limit: 20, offset: 0 }), "?limit=20&offset=0");
+  assert.equal(buildTasksQuery({ limit: 500, offset: -5 }), "?limit=100&offset=0");
+  assert.equal(buildTasksQuery({}), "?limit=20&offset=0");
+  assert.equal(buildTasksQuery({ limit: "abc", offset: "10" }), "?limit=20&offset=10");
 });
