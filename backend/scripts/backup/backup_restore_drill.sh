@@ -81,7 +81,11 @@ fi
 echo "灾难后业务表剩余: 0（扩展与 pgstac schema 不受影响）"
 
 echo "== [4/5] 从备份恢复 =="
-psql "$DSN" -q -v ON_ERROR_STOP=1 --file="$BACKUP"
+# pg_dump 会带 CREATE SCHEMA public;——演练灾难只删业务表、public schema 本就存在，
+# 直接恢复会报 already exists，故过滤后再执行（schema 由库自身管理，非业务恢复内容）
+RESTORE="$WORKDIR/restore.sql"
+sed '/^CREATE SCHEMA public;$/d; /^CREATE SCHEMA pgstac;$/d' "$BACKUP" > "$RESTORE"
+psql "$DSN" -q -v ON_ERROR_STOP=1 --file="$RESTORE"
 echo "恢复完成"
 
 echo "== [5/5] 恢复后行数核对 =="
