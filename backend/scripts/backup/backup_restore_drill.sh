@@ -3,7 +3,10 @@
 #
 # 范围界定：public schema 里的「业务表」= 普通表且不是任何扩展的成员对象
 # （pg_depend deptype='e'），即排除 postgis 的 spatial_ref_sys 等平台托管表；
-# pgstac schema 属编目平台托管，亦不在业务备份范围（pg_dump --schema=public）。
+# pgstac schema 属编目平台托管，亦不在业务备份范围。
+# pg_dump 采用业务表白名单（--table=public.<表> 逐一列举）：pgstac 还会在 public
+# schema 里创建自己的辅助函数（如 pgstac_admin_owns），--schema=public 全量 dump
+# 会把它们带进备份、恢复时与现存函数冲突；灾难口径只删业务表，备份恢复同口径。
 #
 # 用法（需可用的 Postgres 与 psql/pg_dump）：
 #   scripts/backup/backup_restore_drill.sh postgresql://user:pass@host:5432/geodata
@@ -22,13 +25,6 @@ BUSINESS_SQL="SELECT c.relname FROM pg_class c \
   WHERE n.nspname='public' AND c.relkind='r' \
   AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid=c.oid AND d.deptype='e') \
   ORDER BY 1"
-# 扩展成员表（如 spatial_ref_sys）——pg_dump 时逐一排除
-EXT_SQL="SELECT c.relname FROM pg_class c \
-  JOIN pg_namespace n ON n.oid = c.relnamespace \
-  WHERE n.nspname='public' AND c.relkind='r' \
-  AND EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid=c.oid AND d.deptype='e') \
-  ORDER BY 1"
-
 snapshot() { # 表名列表 -> 行数清单
   local t n
   for t in $1; do
@@ -51,14 +47,14 @@ if [ "$total_rows" -eq 0 ]; then
   echo "::error::业务表全空，演练无意义（先造业务数据）"; exit 1
 fi
 
-echo "== [2/5] pg_dump 备份（public 业务表，排除扩展成员表） =="
-EXCLUDES=()
-while IFS= read -r t; do
-  [ -n "$t" ] && EXCLUDES+=(--exclude-table="public.$t")
-done < <(psql "$DSN" -tAc "$EXT_SQL")
+echo "== [2/5] pg_dump 备份（业务表白名单） =="
+TABLE_ARGS=()
+for t in $TABLES; do
+  TABLE_ARGS+=(--table="public.$t")
+done
 BACKUP="$WORKDIR/geodata_backup.sql"
-pg_dump "$DSN" --schema=public --no-owner --no-privileges \
-  "${EXCLUDES[@]:-}" --format=plain --file="$BACKUP"
+pg_dump "$DSN" --no-owner --no-privileges \
+  "${TABLE_ARGS[@]}" --format=plain --file="$BACKUP"
 SIZE=$(wc -c < "$BACKUP")
 created=$(grep -c '^CREATE TABLE public\.' "$BACKUP" || true)
 expected=$(echo "$TABLES" | wc -l)
@@ -81,8 +77,8 @@ fi
 echo "灾难后业务表剩余: 0（扩展与 pgstac schema 不受影响）"
 
 echo "== [4/5] 从备份恢复 =="
-# pg_dump 会带 CREATE SCHEMA public;——演练灾难只删业务表、public schema 本就存在，
-# 直接恢复会报 already exists，故过滤后再执行（schema 由库自身管理，非业务恢复内容）
+# 防御性过滤 CREATE SCHEMA 行：public schema 由库自身管理（灾难只删业务表），
+# 若 dump 形态带出该行会报 already exists，故过滤后再执行
 RESTORE="$WORKDIR/restore.sql"
 sed '/^CREATE SCHEMA public;$/d; /^CREATE SCHEMA pgstac;$/d' "$BACKUP" > "$RESTORE"
 psql "$DSN" -q -v ON_ERROR_STOP=1 --file="$RESTORE"
