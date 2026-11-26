@@ -26,6 +26,10 @@ SQL_FILES = ("000_extensions.sql", "001_core_schema.sql")
 
 
 def upgrade() -> None:
+    # 显式锁定 search_path：pgstac 镜像会把数据库级 search_path 设为
+    # "pgstac, public"，不加这句时所有无限定 CREATE TABLE 会静默落进 pgstac
+    # schema（W7 备份演练在 CI 实测暴露的真实缺陷）。
+    op.execute("SET search_path TO public")
     for name in SQL_FILES:
         sql = (SQL_DIR / name).read_text(encoding="utf-8")
         op.execute(sql)
@@ -33,5 +37,6 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     # 基线回滚：按 ORM 元数据逆序删表（扩展与 pgstac schema 保留）
+    op.execute("SET search_path TO public")
     for table in reversed(Base.metadata.sorted_tables):
         op.execute(f'DROP TABLE IF EXISTS "{table.name}" CASCADE')

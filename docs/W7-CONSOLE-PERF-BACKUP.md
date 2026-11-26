@@ -44,17 +44,38 @@ python3 scripts/loadtest.py --base-url http://127.0.0.1:8000 \
 
 ## 备份恢复演练
 
-`scripts/backup/backup_restore_drill.sh`（bash + psql/pg_dump，无第三方依赖）：
+`scripts/backup/backup_restore_drill.sh`（bash + psql/pg_dump，无第三方依赖），业务表范围口径：
 
-1. 快照 public schema 全表行数（备份前基线，全空则拒绝演练）
-2. `pg_dump --no-owner --no-privileges` 全量逻辑备份（< 100 bytes 判异常）
-3. 模拟灾难：`DROP SCHEMA public CASCADE` 后重建空 schema
-4. `psql --file=backup.sql -v ON_ERROR_STOP=1` 恢复
-5. 恢复后全表行数与基线逐一 `diff`，全等 → PASS（exit 0），任何差异 → FAIL（exit 1）
+1. 业务表清单 = public 下普通表且**非**任何扩展的成员对象（`pg_depend deptype='e'`，
+   即排除 postgis 的 spatial_ref_sys 等平台托管表）
+2. 快照全部业务表行数（备份前基线，全空则拒绝演练）
+3. `pg_dump --schema=public --exclude-table=<扩展成员表>…` 业务备份
+   （pgstac schema 属编目平台托管、不在业务备份范围），并断言备份含全量业务表 DDL
+4. 模拟灾难：逐一 `DROP TABLE public.<t> CASCADE`（业务表归零，扩展与 pgstac schema 不受影响）
+5. `psql --file=backup.sql -v ON_ERROR_STOP=1` 恢复 → 全表行数与基线逐一 `diff`
+   全等 → PASS（exit 0），任何差异 → FAIL（exit 1）
 
 接入位置：CI `migrate-smoke` job 末位 step（Alembic 迁移 + pgSTAC 集成测试之后，
-pgstac 容器上先插一行 role 保证备份非空）。演练只覆盖 public（业务）schema，
-pgstac schema 属平台托管、不在业务备份范围。
+先插一行 `public.role` 保证备份非空）。
+
+### 首跑暴露的真实缺陷：pgstac 镜像 search_path 劫持（已修）
+
+首跑（CI run 45778323657）失败并顺带暴露一个 W2 起就潜伏的问题：
+
+- **现象**：迁移步骤正常、`INSERT INTO role` 正常，但 public schema 里只有
+  `spatial_ref_sys`——所有业务表实际落在了 **pgstac schema**；
+  恢复时报 `ERROR: schema "pgstac" already exists`（pg_dump 未过滤 schema）。
+- **根因**：`ghcr.io/stac-utils/pgstac` 镜像的 initdb 脚本把数据库级
+  `search_path` 设为 `pgstac, public`，Alembic 执行的无限定
+  `CREATE TABLE` / `ALTER TABLE` 全部静默落进 pgstac schema；
+  迁移后检查（public 有表）被 postgis 的 spatial_ref_sys 掩护通过，从未报警。
+- **修复（三层）**：
+  1. 迁移自身根治：`0001`/`0002` upgrade/downgrade 首句 `SET search_path TO public`
+     ——任何环境（含 W8 部署）都不再依赖数据库级 search_path 默认值；
+  2. CI Alembic 连接加 `?options=-csearch_path%3Dpublic`（alembic_version 也落 public）；
+  3. CI 新增门禁：迁移后断言 `public.role` 存在，search_path 劫持一旦回归立即红。
+- **教训**：凡在带平台 schema 的库上跑迁移，DDL 必须显式限定 schema 或锁定
+  search_path；「有表」类弱检查会被平台托管表掩护，要断言具体业务表。
 
 ## API 契约（中台前半程）
 

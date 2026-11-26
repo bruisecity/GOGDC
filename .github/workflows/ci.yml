@@ -70,13 +70,19 @@ jobs:
           docker exec pg psql -U postgres -d geodata -tAc \
             "SELECT 1 FROM information_schema.schemata WHERE schema_name='pgstac'" | grep -q 1 \
             || { echo "::error::pgstac schema 未出现（初始化未完成或镜像行为变更）"; docker logs pg | tail -50; exit 1; }
-          # W2 起 schema 经 Alembic 落库（baseline 执行 sql/000+001，与 ORM 门禁对齐）
+          # W2 起 schema 经 Alembic 落库（baseline 执行 sql/000+001，与 ORM 门禁对齐）；
+          # options 锁 search_path=public：pgstac 镜像把数据库级 search_path 设为
+          # "pgstac, public"，不锁定时 alembic_version 与无限定 DDL 会静默落进 pgstac schema
           pip install "sqlalchemy>=2.0" "psycopg[binary]>=3.2" "alembic>=1.13"
-          cd backend && DATABASE_URL=postgresql+psycopg://postgres:geodata@localhost:5432/geodata \
+          cd backend && DATABASE_URL='postgresql+psycopg://postgres:geodata@localhost:5432/geodata?options=-csearch_path%3Dpublic' \
             alembic upgrade head
           cd .. && docker exec pg psql -U postgres -d geodata -tAc \
-            "SELECT count(*) FROM information_schema.tables WHERE table_schema='public'" | grep -vq '^0$' \
+            "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'" | grep -vq '^0$' \
             || { echo "::error::迁移后 public schema 无表"; exit 1; }
+          # W7 教训门禁：业务表必须真落在 public（防 search_path 劫持回归）
+          docker exec pg psql -U postgres -d geodata -tAc \
+            "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name='role'" | grep -q '^1$' \
+            || { echo "::error::业务表 role 未落在 public schema（search_path 被劫持？）"; exit 1; }
           # 终验：postgis 以扩展安装（打印版本），pgstac 以 schema 存在（打印 schema 名）
           docker exec pg psql -U postgres -d geodata -tAc \
             "SELECT extversion FROM pg_extension WHERE extname='postgis'"
@@ -91,9 +97,9 @@ jobs:
 
       - name: Backup/restore drill（W7：备份与恢复演练）
         run: |
-          # 造业务数据，保证备份非空（幂等：role.code 唯一）
+          # 造业务数据，保证备份非空（幂等：role.code 唯一；显式限定 public 防 search_path 歧义）
           docker exec pg psql -U postgres -d geodata -c \
-            "INSERT INTO role (code, name) VALUES ('admin','管理员') ON CONFLICT (code) DO NOTHING"
+            "INSERT INTO public.role (code, name) VALUES ('admin','管理员') ON CONFLICT (code) DO NOTHING"
           chmod +x backend/scripts/backup/backup_restore_drill.sh
           backend/scripts/backup/backup_restore_drill.sh \
             postgresql://postgres:geodata@localhost:5432/geodata

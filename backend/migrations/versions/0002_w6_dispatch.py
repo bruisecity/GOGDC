@@ -21,9 +21,12 @@ SQL_DIR = Path(__file__).resolve().parents[2] / "sql"
 
 
 def upgrade() -> None:
+    # 与 0001 同理：锁定 search_path，防止无限定 ALTER 落进错误 schema
+    op.execute("SET search_path TO public")
     op.execute((SQL_DIR / "002_w6_dispatch.sql").read_text(encoding="utf-8"))
 
 
 def downgrade() -> None:
+    op.execute("SET search_path TO public")
     op.execute("ALTER TABLE harvest_task DROP COLUMN IF EXISTS last_run_at")
     op.execute("ALTER TABLE harvest_task DROP COLUMN IF EXISTS time_window")
